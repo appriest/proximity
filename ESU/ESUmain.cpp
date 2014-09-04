@@ -8,7 +8,6 @@
 // ROOT includes
 #include <TGraph.h>
 #include <TCanvas.h>
-#include <TApplication.h>
 
 using namespace std;
 
@@ -65,8 +64,11 @@ class WP{
 			cout << "Position vector size: " << x.size() << endl;
 			cout << "WP vector size: " << wp.size() << endl;
 			cout << "And that's it!" << endl;
-			TApplication *rootApp = new TApplication();
-			TCanvas *c1 = new TCanvas("c1", "WeightingPotential");
+		}
+
+		void plotWP(){
+			
+			//TCanvas *c1 = new TCanvas("c1", "WeightingPotential");
 			int n;
 			n = x.size();
 			TGraph *gr = new TGraph(n);
@@ -82,13 +84,10 @@ class WP{
 			yaxis = gr->GetYaxis();
 			yaxis->SetTitle("Weighting Potential");*/
 			gr->Draw();
-			rootApp->Run();
 			cout << "Press ENTER when done." << endl;
 			int dummy;
 			cin >> dummy;
-		}
-
-		
+		}		
 
 	protected:
 
@@ -107,6 +106,7 @@ int main(int argc, char* argv[]){
 	cout << "Initial position: " << p.getPos() << endl;
 	cout << "Spread: " << p.getSpread() << endl;	
 	WP wp1("inFile.txt");
+	wp1.plotWP();
 
 	return 0;
 }
