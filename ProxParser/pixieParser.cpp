@@ -6,7 +6,7 @@
 
 int main(int argc, char* argv[]){
 	
-	std::ifstream inFile (argv[1], std::ifstream::binary);  // argv[1] should contain the Pixie file name to be parsed with extension .bin
+	std::ifstream inFile (argv[1], std::ios::binary);  // argv[1] should contain the Pixie file name to be parsed with extension .bin
 
 	if(inFile){
 		
@@ -17,20 +17,30 @@ int main(int argc, char* argv[]){
 		fname[flen-2] = 'x';
 		fname[flen-1] = 't';
 		
-		std::cout << fname << std::endl;
-
-		outFile.open(fname);
+		outFile.open(fname, std::ios::trunc);
+		
+		std::cout << "Opened output file named: " << fname << std::endl;
 
 		inFile.seekg(0, inFile.end);
 		int length = inFile.tellg();
 		inFile.seekg(0, inFile.beg);
 
-		char * buffer = new char[length];
+		const int wordLen = 8;
+		
+		char * buffer[wordLen];
+
+		//int buffer;
 
 		std::cout << "Reading " << length << " characters... ";
 
-		inFile.read(buffer, length);
+		//for(int loc=0; loc<length; loc += wordLen){
+		
+		while(inFile.read(reinterpret_cast<char*>(&buffer), wordLen)){
 
+			outFile << buffer << std::endl;
+		
+		}
+		
 		if(inFile){
 			std::cout << "All characters were read successfully." << std::endl;
 		}
@@ -40,8 +50,7 @@ int main(int argc, char* argv[]){
 
 		inFile.close();
 		
-		outFile << buffer;
-		delete[] buffer;
+		//delete[] buffer;
 
 	}
 
