@@ -21,10 +21,14 @@ class pixieParser:
 
             print "The file you entered does not exist."
 
-        print "Enter the number of channels in the system: "
-
-        self.channels = raw_input()
-
         print "Enter the number of modules used for this data: "
 
         self.moduleNum = raw_input()
+        
+        self.channelNum = np.zeros(self.moduleNum)
+
+        for i in range(self.moduleNum):
+
+            print "Enter the number of channels used in module ", i, ": "
+
+            self.channelNum[i] = raw_input()
