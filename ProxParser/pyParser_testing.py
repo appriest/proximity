@@ -1,12 +1,14 @@
-import binascii as ba
+import struct
 
 i=0
 fname = "Proximity_scan_120814_0042.bin"
 with open(fname, "rb") as f:
     byte = f.read(2)
+    print struct.unpack('h',byte)
     while byte != "":
-        print ba.b2a_uu(byte)
+        byte = f.read(2)
+        print struct.unpack('h',byte)
         i += 1
-        if i > 20:
+        if i > 100:
             break
 f.close()
