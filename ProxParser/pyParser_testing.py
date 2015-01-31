@@ -7,7 +7,8 @@ with open(fname, "rb") as f:
     print struct.unpack('h',byte)
     while byte != "":
         byte = f.read(2)
-        print struct.unpack('h',byte)
+        num, = struct.unpack('h',byte)
+        print num
         i += 1
         if i > 100:
             break

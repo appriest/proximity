@@ -32,3 +32,42 @@ class pixieParser:
             print "Enter the number of channels used in module ", i, ": "
 
             self.channelNum[i] = raw_input()
+
+    def readRawFile(self):
+
+        numBuffers = 0
+
+        while True:
+        
+            buffersize, = struct.unpack('h', self.f.read(2))
+            module, = struct.unpack('h', self.f.read(2))
+            word, = struct.unpack('h', self.f.read(2))
+            bufTimeHi, = struct.unpack('h', self.f.read(2))
+            bufTimeMi, = struct.unpack('h', self.f.read(2))
+            bufTimeLo, = struct.unpack('h', self.f.read(2))
+
+            bufferTime = bufTimeHi*2**32 + bufTimeMi*2**16 + bufTimeLo
+            numEvents = (buffersize - 6)/11
+            numBuffers = numBuffers + 1
+
+            for i in range(numEvents):
+                
+                if module == 0:
+
+                    word, = struct.unpack('h', self.f.read(2))
+                    eventTimeHi, = struct.unpack('h', self.f.read(2))
+                    eventTimeLo, = struct.unpack('h', self.f.read(2))
+                    
+                    for channel in range(self.channelNum[module]):
+                    
+                    timeCh0, = struct.unpack('h', self.f.read(2))
+                    energyCh0, = struct.unpack('h', self.f.read(2))
+                    timeCh1, = struct.unpack('h', self.f.read(2))
+                    energyCh1, = struct.unpack('h', self.f.read(2))
+                    timeCh2, = struct.unpack('h', self.f.read(2))
+                    energyCh2, = struct.unpack('h', self.f.read(2))
+                    timeCh3, = struct.unpack('h', self.f.read(2))
+                    enerfyCh3, = struct.unpack('h', self.f.read(2))
+
+                    eventTime = bufTimeHi*2**32 + eventTimeHi*2**16 + eventTimeLo
+
