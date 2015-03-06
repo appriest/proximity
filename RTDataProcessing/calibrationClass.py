@@ -1,24 +1,29 @@
 import numpy as np
 import scipy as sp
 from eventClass import event
+import pyqtgraph as pg
+from pyqtgraph.Qt import QtGui, QtCore
 
 class calibration:
 
-    def __init__(self, calType = 0, stripPitch = 5, numBins = 2000, numStrips = 8):
+    def __init__(self, calType = 0, stripPitch = 5, numBins = 2000, \
+                 numStrips = 8):
 
         self.notes = ""
         self.calType = calType
         self.numStrips = numStrips
         self.numBins = numBins
         self.stripPitch = stripPitch
-        self.numEvents = 0
+        self.numEvents = np.zeros(self.numStrips)
         self.rhist = np.zeros((self.numStrips,self.numBins))
-    
-    def addEvent(self, event):
-        
-        # rhist is an array containing the ratio histograms(regions = rows) for each of the regions (bins = columns)
-        self.rhist[event.region][np.floor(1000*event.ratio)] += 1
-        self.numEvents += 1
+        self.mapping = np.zeros((self.numStrips, self.numBins))
+
+    def addEvent(self, e = event()):
+
+        # rhist is an array containing the ratio histograms(regions = rows)
+        # for each of the regions (bins = columns)
+        self.rhist[np.floor(1000*e.ratio), e.region] += 1
+        self.numEvents[e.region] += 1
 
     def updateMap(self):
 
@@ -27,22 +32,39 @@ class calibration:
 
         print "Updating map plot...\n"
 
+        self.mapping = np.array([[sum(subArray[:i+1])/self.numEvents[j] \
+                                 for i,ratio in enumerate(subArray)] \
+                                 for j,subArray in enumerate(self.rhist)])
+
+        self.mapping = self.mapping*self.stripPitch
+
     def plotMap(self, region = None):
-        
+
         if region == None:
 
-            # Plots the current mapping between ratio and position for all regions
+            # Plots the current mapping between ratio and position for all
+            # regions
 
             print "Plotting map for all regions...\n"
 
+            win = pg.GraphicsWindow(title="Ratio to Position Mapping")
+            p1 = win.addPlot(title = "Ratio vs. Position")
+
+            x = np.arange(self.numBins)/self.numBins*self.stripPitch
+
+            for region, ratioMap in enumerate(self.mapping):
+
+                p1.plot(x,ratioMap)
+
         else:
 
-            # Plots the current mapping between ratio and position for the region listed
+            # Plots the current mapping between ratio and position for the
+            # region listed
 
             print "Plotting map for region ", region, "...\n"
 
     def plotHist(self, region = None):
-        
+
         # Plots the current histograms for the regions
 
         if region == None:
@@ -58,7 +80,7 @@ class calibration:
             print "Plotting ratio histogram for region ", region, "...\n"
 
     def writeCalToFile(self, fname = None):
-        
+
         if fname == None:
 
             print "Please provide a file name!"
@@ -73,9 +95,9 @@ class calibration:
             print "...\nFinished!"
 
     def readCalFromFile(self, fname = None):
-        
+
         # Read a saved calibration from a file
-        
+
         if fname == None:
 
             print "Please provide a file name!"
@@ -84,14 +106,15 @@ class calibration:
 
             if self.numEvents != 0:
 
-                print "Are you sure you want to overwrite this calibration object? (Y/N)\n"
+                print "Are you sure you want to overwrite this calibration \
+                    object? (Y/N)\n"
 
                 ans = raw_input()
 
                 if 'N' == ans.upper():
 
                     print "Calibration not overwritten.\n"
-                    
+
                     return 0
 
                 elif 'Y' != ans.upper():
@@ -108,20 +131,24 @@ class calibration:
 
             print "...\nFinished!\n"
 
-    def mapEvent(self, event = None):
-        
-        # Take in an event and use the current mapping to reconstruct the position of the event
+    def mapEvent(self, e = None):
 
-        '''For the love of god, take the print statements out before trying to use this for realsies'''
-        
-        if event == None:
+        # Take in an event and use the current mapping to reconstruct the
+        # position of the event
 
-            print "Don't forget to take these print statements out before trying to use this!\n"
+        '''For the love of god, take the print statements out before trying
+        to use this for realsies'''
+
+        if e == None:
+
+            print "Don't forget to take these print statements out before \
+                trying to use this!\n"
             print "Please provide a valid event of class type 'event'!\n"
 
         else:
 
-            print "Don't forget to take these print statements out before trying to use this!\n"
+            print "Don't forget to take these print statements out before \
+                trying to use this!\n"
             print "Mapping event...\n"
 
             # Map event
@@ -129,15 +156,17 @@ class calibration:
             print "Done!\n\n"
 
     def calProperties(self):
-        
-        print "This calibration object is for a(n) ", self.numStrips, " strip detector.\n"
+
+        print "This calibration object is for a(n) ", self.numStrips, \
+            " strip detector.\n"
         print "Strip pitch: ", self.stripPitch, "\n"
         print "Number of events: ", self.numEvents, "\n"
         print "Notes: ", self.notes, "\n\n"
 
     def addNotes(self, note = None):
 
-        # Function for adding notes to a calibration that give some information about the object
+        # Function for adding notes to a calibration that give some
+        # information about the object
 
         self.notes += " "
         self.notes += note
