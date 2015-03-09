@@ -6,7 +6,7 @@ from pyqtgraph.Qt import QtGui, QtCore
 
 class calibration:
 
-    def __init__(self, calType = 0, stripPitch = 5, numBins = 2000, \
+    def __init__(self, calType = 0, stripPitch = 5., numBins = 2000, \
                  numStrips = 8):
 
         self.notes = ""
@@ -18,11 +18,16 @@ class calibration:
         self.rhist = np.zeros((self.numStrips,self.numBins))
         self.mapping = np.zeros((self.numStrips, self.numBins))
 
-    def addEvent(self, e = event()):
+    def addEvent(self, e = None):
 
         # rhist is an array containing the ratio histograms(regions = rows)
         # for each of the regions (bins = columns)
-        self.rhist[np.floor(1000*e.ratio), e.region] += 1
+
+        if e == None:
+            print "You didn't provide an event to add! Try again...\n"
+            return 1
+
+        self.rhist[np.floor(1000*e.ratioMain), e.region] += 1
         self.numEvents[e.region] += 1
 
     def updateMap(self):
@@ -36,7 +41,7 @@ class calibration:
                                  for i,ratio in enumerate(subArray)] \
                                  for j,subArray in enumerate(self.rhist)])
 
-        self.mapping = self.mapping*self.stripPitch
+        self.mapping = self.mapping*self.stripPitch/2.
 
     def plotMap(self, region = None):
 
@@ -56,12 +61,25 @@ class calibration:
 
                 p1.plot(x,ratioMap)
 
+            p1.setLabel('left',"Ratio")
+            p1.setLabel('bottom',"Position within region", units='mm')
+
         else:
 
             # Plots the current mapping between ratio and position for the
             # region listed
 
             print "Plotting map for region ", region, "...\n"
+
+            win = pg.GraphicsWindow(title="Ratio to Position Mapping")
+            p1 = win.addPlot(title = "Ratio vs. Position")
+
+            x = np.arange(self.numBins)/self.numBins*self.stripPitch
+
+            p1.plot(x,self.mapping[:,region])
+
+            p1.setLabel('left',"Ratio")
+            p1.setLabel('bottom',"Position within region", units='mm')
 
     def plotHist(self, region = None):
 
@@ -72,6 +90,18 @@ class calibration:
             # Plot all regions
 
             print "Plotting ratio histogram for all regions...\n"
+
+            histWin = pg.GraphicsWindow(title="Ratio Histograms for All \
+                                        Regions")
+
+            histPlot = histWin.addPlot(title = "Ratio Histograms")
+
+            histPlot.setLabel('left',"Counts")
+            histPlot.setLabel('bottom',"Ratio")
+
+            for hist in self.rhist:
+
+                histPlot.plot(hist)
 
         else:
 
