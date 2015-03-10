@@ -9,6 +9,21 @@ class calibration:
     def __init__(self, calType = 0, stripPitch = 5., numBins = 2000, \
                  numStrips = 8):
 
+        '''Usage: calibration(calType=0,stripPitch=5,numBins=2000,numStrips=8)
+
+        calType(int): Meant for implementing different kinds of reconstruction
+            methods. Only "method 2" is currently implemented. Others will
+            follow.
+        stripPitch(float): Use float/double type in mm.
+        numBins(int): Indicates the number of bins to be used in the ratio
+            histograms. This will also dictate the granularity of the position-
+            ratio mapping.
+        numStrips(int): Use integer type.
+
+        This class is for storing and manipulating data that can be used for
+        reconstructing data from a proximity type detector of a certain
+        geometry. More info to come.'''
+
         self.notes = ""
         self.calType = calType
         self.numStrips = numStrips
@@ -20,10 +35,15 @@ class calibration:
 
     def addEvent(self, e = None):
 
+        ''' Usage: addEvent(e = eventClass.event)
+
+        Adds the event ratio to the proper histogram and adds one to the
+        number of events for the region.'''
+
         # rhist is an array containing the ratio histograms(regions = rows)
         # for each of the regions (bins = columns)
 
-        if e == None:
+        if isinstance(e,event) == FALSE:
             print "You didn't provide an event to add! Try again...\n"
             return 1
 
