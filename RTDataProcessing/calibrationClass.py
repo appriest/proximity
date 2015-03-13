@@ -9,7 +9,7 @@ class calibration:
     def __init__(self, calType = 0, stripPitch = 5., numBins = 2000, \
                  numStrips = 8):
 
-        '''Usage: calibration(calType=0,stripPitch=5,numBins=2000,numStrips=8)
+        '''Usage: calibration(calType=0,stripPitch=5.,numBins=2000,numStrips=8)
 
         calType(int): Meant for implementing different kinds of reconstruction
             methods. Only "method 2" is currently implemented. Others will
@@ -43,14 +43,19 @@ class calibration:
         # rhist is an array containing the ratio histograms(regions = rows)
         # for each of the regions (bins = columns)
 
-        if isinstance(e,event) == FALSE:
+        if isinstance(e,event) == False:
             print "You didn't provide an event to add! Try again...\n"
             return 1
 
-        self.rhist[np.floor(1000*e.ratioMain), e.region] += 1
-        self.numEvents[e.region] += 1
+        self.rhist[e.regionMain, np.floor(1000*e.ratioMain)] += 1
+        self.numEvents[e.regionMain] += 1
 
     def updateMap(self):
+
+        '''Usage: updateMap()
+
+        Integrates over the ratio histograms for each region creating the
+        mapping from ratio to position.'''
 
         # Updates the mapping from ratio to position
         # Performs an integral on the histograms for each of the regions
@@ -64,6 +69,13 @@ class calibration:
         self.mapping = self.mapping*self.stripPitch/2.
 
     def plotMap(self, region = None):
+
+        '''Usage: plotMap(region = None)
+
+        region(int): If region is provided, only the mapping for the region
+            provided will be mapped. Otherwise, all regions will be plotted.
+
+        Simply plots the mapping for the region given or for all regions.'''
 
         if region == None:
 
@@ -84,6 +96,11 @@ class calibration:
             p1.setLabel('left',"Ratio")
             p1.setLabel('bottom',"Position within region", units='mm')
 
+            import sys
+            if(sys.flags.interactive != 1) or not hasattr(QtCore,
+                                                          'PYQT_VERSION'):
+                QtGui.QApplication.instance().exec_()
+
         else:
 
             # Plots the current mapping between ratio and position for the
@@ -101,9 +118,18 @@ class calibration:
             p1.setLabel('left',"Ratio")
             p1.setLabel('bottom',"Position within region", units='mm')
 
+            import sys
+            if(sys.flags.interactive != 1) or not hasattr(QtCore,
+                                                          'PYQT_VERSION'):
+                QtGui.QApplication.instance().exec_()
+
     def plotHist(self, region = None):
 
-        # Plots the current histograms for the regions
+        '''Usage: plotHist(region = None)
+
+        region(int): Region to be plotted. If None, plots all regions.
+
+        Plots the current ratio histograms for the regions.'''
 
         if region == None:
 
@@ -123,13 +149,39 @@ class calibration:
 
                 histPlot.plot(hist)
 
+            import sys
+            if(sys.flags.interactive != 1) or not hasattr(QtCore,
+                                                          'PYQT_VERSION'):
+                QtGui.QApplication.instance().exec_()
+
         else:
 
             # Plot the region listed
 
-            print "Plotting ratio histogram for region ", region, "...\n"
+            print "Plotting ratio histogram for region", region, "...\n"
+
+            title = "Ratio Histogram for Region " + str(region)
+            histWin = pg.GraphicsWindow(title=title)
+
+            histPlot = histWin.addPlot(title = "Ratio Histogram")
+
+            histPlot.setLabel('left',"Counts")
+            histPlot.setLabel('bottom',"Ratio")
+
+            histPlot.plot(self.rhist[region,:])
+
+            import sys
+            if(sys.flags.interactive != 1) or not hasattr(QtCore,
+                                                          'PYQT_VERSION'):
+                QtGui.QApplication.instance().exec_()
 
     def writeCalToFile(self, fname = None):
+
+        '''Usage: writeCalToFile(fname = None)
+
+        fname("str"): String literal for the name of the calibration file.
+
+        Implementation has not been written yet. More details to come.'''
 
         if fname == None:
 
@@ -146,7 +198,13 @@ class calibration:
 
     def readCalFromFile(self, fname = None):
 
-        # Read a saved calibration from a file
+        '''Usage: readCalFromFile(fname = None)
+
+        fname("str"): String literal for the file name to read from and store
+            into a calibration object.
+
+        Read a saved calibration from a file. Implementation not yet
+        written.'''
 
         if fname == None:
 
@@ -183,10 +241,15 @@ class calibration:
 
     def mapEvent(self, e = None):
 
-        # Take in an event and use the current mapping to reconstruct the
-        # position of the event
+        '''Usage: mapEvent(e = None)
 
-        '''For the love of god, take the print statements out before trying
+        e(event object): Event instance to be mapped. The event position will
+            be added to the attributes of the event instance.
+
+        Take in an event and use the current mapping to reconstruct the
+        position of the event
+
+        For the love of god, take the print statements out before trying
         to use this for realsies'''
 
         if e == None:
@@ -207,6 +270,10 @@ class calibration:
 
     def calProperties(self):
 
+        '''Usage: calProperties()
+
+        Prints the attributes of the calibration object.'''
+
         print "This calibration object is for a(n) ", self.numStrips, \
             " strip detector.\n"
         print "Strip pitch: ", self.stripPitch, "\n"
@@ -215,8 +282,14 @@ class calibration:
 
     def addNotes(self, note = None):
 
-        # Function for adding notes to a calibration that give some
-        # information about the object
+        '''Usage: addNotes(note = None)
+
+        note("str"): String literal with the note to be added. note will be
+            added onto the end of any existing notes.
+
+        Meant to used for adding additional information about how the
+        calibration was constructed (i.e. data used, particular attributes
+        used, etc.)'''
 
         self.notes += " "
         self.notes += note

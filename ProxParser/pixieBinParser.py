@@ -1,5 +1,6 @@
 import struct
 import eventClass.event as event
+import numpy as np
 
 class pixieParser:
 
@@ -24,7 +25,7 @@ class pixieParser:
         print "Enter the number of modules used for this data: "
 
         self.moduleNum = raw_input()
-        
+
         self.channelNum = np.zeros(self.moduleNum)
 
         for i in range(self.moduleNum):
@@ -38,7 +39,7 @@ class pixieParser:
         numBuffers = 0
 
         while True:
-        
+
             buffersize, = struct.unpack('h', self.f.read(2))
             module, = struct.unpack('h', self.f.read(2))
             word, = struct.unpack('h', self.f.read(2))
@@ -51,23 +52,23 @@ class pixieParser:
             numBuffers = numBuffers + 1
 
             for i in range(numEvents):
-                
+
                 if module == 0:
 
                     word, = struct.unpack('h', self.f.read(2))
                     eventTimeHi, = struct.unpack('h', self.f.read(2))
                     eventTimeLo, = struct.unpack('h', self.f.read(2))
-                    
+
                     for channel in range(self.channelNum[module]):
-                    
-                    timeCh0, = struct.unpack('h', self.f.read(2))
-                    energyCh0, = struct.unpack('h', self.f.read(2))
-                    timeCh1, = struct.unpack('h', self.f.read(2))
-                    energyCh1, = struct.unpack('h', self.f.read(2))
-                    timeCh2, = struct.unpack('h', self.f.read(2))
-                    energyCh2, = struct.unpack('h', self.f.read(2))
-                    timeCh3, = struct.unpack('h', self.f.read(2))
-                    enerfyCh3, = struct.unpack('h', self.f.read(2))
 
-                    eventTime = bufTimeHi*2**32 + eventTimeHi*2**16 + eventTimeLo
+                        timeCh0, = struct.unpack('h', self.f.read(2))
+                        energyCh0, = struct.unpack('h', self.f.read(2))
+                        timeCh1, = struct.unpack('h', self.f.read(2))
+                        energyCh1, = struct.unpack('h', self.f.read(2))
+                        timeCh2, = struct.unpack('h', self.f.read(2))
+                        energyCh2, = struct.unpack('h', self.f.read(2))
+                        timeCh3, = struct.unpack('h', self.f.read(2))
+                        enerfyCh3, = struct.unpack('h', self.f.read(2))
 
+                        eventTime = bufTimeHi*2**32 + eventTimeHi*2**16 \
+                            + eventTimeLo
