@@ -1,5 +1,5 @@
 import struct
-import eventClass as ec
+from eventClass import *
 import numpy as np
 import os
 
@@ -9,7 +9,7 @@ class pixieParser:
 
         self.fname = fname
 
-        if self.fname == None:
+        if self.fname is None:
 
             print "Please enter a valid file name to properly initialize this \
                 class."
@@ -40,20 +40,31 @@ class pixieParser:
         self.numbytes = self.f.tell()
 
         if quiet == 0:
-            print fname, ": ", numbytes, " bytes"
+            print fname, ": ", self.numbytes, " bytes"
 
         self.f.seek(0, os.SEEK_SET)
 
     def readBinFile(self):
 
 
-        numbuffers = 0
+        numBuffers = 0
         maxBuffers = 1000
 
-        while numBytesRead < self.numbytes:
+        eventTimes = []
+        self.energies = []
 
-            if self.f.tell() >= self.numbytes:
-                return 0
+        for i in range(self.moduleNum):
+
+            self.energies.append([])
+
+            for j in range(int(self.channelNum[i])):
+
+                self.energies[i].append([])
+
+        while True:
+
+            if self.f.tell() >= self.numbytes-10:
+                break
 
             buffersize, = struct.unpack('h', self.f.read(2))
             module, = struct.unpack('h', self.f.read(2))
@@ -66,4 +77,35 @@ class pixieParser:
             numEvents = (buffersize - 6)/11
             numBuffers = numBuffers + 1
 
+            print "Reading ", numEvents, " events from Module ", module, "..."
 
+            for event in range(int(numEvents)):
+
+                word, = struct.unpack('h', self.f.read(2))
+                eventTimeHi, = struct.unpack('h', self.f.read(2))
+                eventTimeLo, = struct.unpack('h', self.f.read(2))
+
+                for channel in range(int(self.channelNum[module])):
+
+                    timeCh, = struct.unpack('h', self.f.read(2))
+                    energyCh, = struct.unpack('h', self.f.read(2))
+
+                    self.energies[module][channel].append(energyCh)
+
+                # Module number check prevents redundancy
+                if module == 0:
+                    eventTimes.append(bufTimeHi*2**32 + eventTimeHi*2**16 \
+                        + eventTimeLo)
+
+        self.e_objects = []
+        chani = 0
+
+        for mod in self.energies:
+
+            for chan in mod:
+
+                print "There are ", len(chan), " events in Ch. ", chani
+
+                chani += 1
+
+            #self.e_objects.append(event([e0,e1,e2,e3,e4,e5,e6,e7],t))
