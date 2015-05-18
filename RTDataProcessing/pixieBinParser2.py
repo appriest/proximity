@@ -2,6 +2,7 @@ import struct
 from eventClass import *
 import numpy as np
 import os
+import time
 
 class pixieParser:
 
@@ -50,7 +51,7 @@ class pixieParser:
         numBuffers = 0
         maxBuffers = 1000
 
-        eventTimes = []
+        self.eventTimes = []
         self.energies = []
 
         for i in range(self.moduleNum):
@@ -94,7 +95,7 @@ class pixieParser:
 
                 # Module number check prevents redundancy
                 if module == 0:
-                    eventTimes.append(bufTimeHi*2**32 + eventTimeHi*2**16 \
+                    self.eventTimes.append(bufTimeHi*2**32 + eventTimeHi*2**16 \
                         + eventTimeLo)
 
         self.e_objects = []
@@ -109,3 +110,74 @@ class pixieParser:
                 chani += 1
 
             #self.e_objects.append(event([e0,e1,e2,e3,e4,e5,e6,e7],t))
+
+    def writeTxtFile(self):
+
+        fname = self.fname
+        fname = list(fname)
+        fname[-3:] = ['t','x','t']
+        fname = "".join(fname)
+        if os.path.isfile(fname):
+            print "This text version of this file already exists."
+            print "Would you like to overwrite it? (y/n)"
+            overwrite = raw_input()
+            if str.lower(overwrite) == 'y':
+                f = open(fname,'w')
+            else:
+                print "File not overwritten. Exiting,,,"
+                return 0
+        else:
+            f = open(fname,'w')
+
+        f.write("# This file was written from pixieBinParser2.py and was\n")
+        f.write("# parsed from ")
+        f.write(self.fname)
+        f.write(". The file has been reformatted.\n")
+        f.write("# It was written on ")
+        f.write(time.strftime("%b %d, %Y"))
+        f.write("\n")
+        f.write("\n\n# pixieBinParser2.py was written by Anders Priest.")
+        f.write("\n\n\n")
+
+        totalCh = 0
+        for chNum in self.channelNum:
+
+            totalCh += chNum
+
+        outputArray = np.zeros((len(self.eventTimes),totalCh))
+
+        for m,module in enumerate(self.energies):
+
+            for ch,channel in enumerate(module):
+
+                for i,eventEnergy in enumerate(channel):
+
+                    outputArray[i,ch+4*m] = eventEnergy
+
+        outputArray = list(outputArray)
+
+        f.write("Time\t\t")
+        for i in range(int(totalCh)):
+
+            f.write("E"+str(i))
+            f.write("\t")
+
+        f.write("\n\n")
+
+        for num,event in enumerate(outputArray):
+
+            f.write(str(self.eventTimes[num]))
+            f.write("\t")
+
+            for chan in event:
+
+                f.write(str(chan))
+                f.write("\t")
+
+            f.write("\n")
+
+        f.write("\n\n")
+        f.write("End of File")
+
+        print "Finished writing file."
+        print len(outputArray), "events written."
