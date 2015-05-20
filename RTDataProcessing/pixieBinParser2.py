@@ -6,7 +6,7 @@ import time
 
 class pixieParser:
 
-    def __init__(self, fname=None, quiet=1):
+    def __init__(self, fname=None, quiet=1, moduleNum=None, channelNum=None):
 
         self.fname = fname
 
@@ -15,7 +15,7 @@ class pixieParser:
             print "Please enter a valid file name to properly initialize this \
                 class."
 
-            return 0
+            return 1
 
         try:
 
@@ -25,17 +25,31 @@ class pixieParser:
 
             print "The file you entered does not exist."
 
-        print "Enter the number of modules used for this data: "
+        if moduleNum is None:
 
-        self.moduleNum = int(raw_input())
+            print "Enter the number of modules used for this data: "
 
-        self.channelNum = np.zeros(self.moduleNum)
+            self.moduleNum = int(raw_input())
 
-        for i in range(int(self.moduleNum)):
+            self.channelNum = np.zeros(self.moduleNum)
 
-            print "Enter the number of channels used in module ", i, ": "
+            for i in range(int(self.moduleNum)):
 
-            self.channelNum[i] = raw_input()
+                print "Enter the number of channels used in module ", i, ": "
+
+                self.channelNum[i] = raw_input()
+
+        else:
+
+            self.moduleNum = moduleNum
+            self.channelNum = channelNum
+
+        if self.moduleNum != len(self.channelNum):
+
+            print "The length of the list 'channelNum' must equal the number "
+            print "of modules, 'moduleNum', given."
+
+            return 1
 
         self.f.seek(0, os.SEEK_END)
         self.numbytes = self.f.tell()
@@ -181,3 +195,7 @@ class pixieParser:
 
         print "Finished writing file."
         print len(outputArray), "events written."
+
+    def makeAndWriteEvents(self):
+
+

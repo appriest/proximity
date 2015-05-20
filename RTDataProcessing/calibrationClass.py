@@ -3,6 +3,7 @@ import scipy as sp
 from eventClass import event
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
+import matplotlib.pyplot as plt
 
 class calibration:
 
@@ -67,6 +68,8 @@ class calibration:
                                  for j,subArray in enumerate(self.rhist)])
 
         self.mapping = self.mapping*self.stripPitch/2.
+
+        self.plotMap()
 
     def plotMap(self, region = None):
 
