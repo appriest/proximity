@@ -6,6 +6,23 @@ import time
 
 class pixieParser:
 
+    '''
+    File: pixieBinParser2.py
+    Author: Anders Priest
+    Description: Pixie parser is meant for binary files written by the Pixie
+        Igor software. It currently has the ability to write text files.
+        Future capabilities include being able to populate event objects
+        for use with the rest of the Proximity analysis software.
+
+    __init__(self, fname=None, quiet=1, moduleNum=None, channelNum=None):
+
+        fname: .bin file written by the Pixie Igor software
+        quiet: supresses printed output
+        moduleNum: number of modules used for acquisition
+        channelNum: number of channels used for each module; list must have
+            the same dimension as moduleNum (i.e. 1xmoduleNum)
+    '''
+
     def __init__(self, fname=None, quiet=1, moduleNum=None, channelNum=None):
 
         self.fname = fname
@@ -61,6 +78,13 @@ class pixieParser:
 
     def readBinFile(self):
 
+        '''
+        File: pixieBinParser2.py
+        Author: Anders Priest
+        Description: Once initialized, execute this function to read the file.
+                This will populate self.energies and self.eventTimes as read
+                from the binary file.
+        '''
 
         numBuffers = 0
         maxBuffers = 1000
@@ -126,6 +150,14 @@ class pixieParser:
             #self.e_objects.append(event([e0,e1,e2,e3,e4,e5,e6,e7],t))
 
     def writeTxtFile(self):
+
+        '''
+        File: pixieBinParser2.py
+        Author: Anders Priest
+        Description: This function will write a text file containing the data
+            from the binary file, with the same base name. The data is
+            formatted for easy reading.
+        '''
 
         fname = self.fname
         fname = list(fname)
@@ -196,6 +228,51 @@ class pixieParser:
         print "Finished writing file."
         print len(outputArray), "events written."
 
-    def makeAndWriteEvents(self):
+    def makeAndWriteEvents(self, returnObjs=1):
 
+        '''
+        File: pixieBinParser2.py
+        Author: Anders Priest
+        Description: This function SHOULD populate event objects then either
+            return them or write them to a file. At the time of writing this
+            none of the functionality has been written.
+        '''
+        totalCh = 0
 
+        for chNum in self.channelNum:
+
+            totalCh += chNum
+
+        outputArray = np.zeros((len(self.eventTimes),totalCh))
+
+        for m,module in enumerate(self.energies):
+
+            for ch,channel in enumerate(module):
+
+                for i,eventEnergy in enumerate(channel):
+
+                    outputArray[i,ch+4*m] = eventEnergy
+
+        outputArray = list(outputArray)
+
+        eventObjs = []
+
+        for num,pulseHeight in enumerate(outputArray):
+
+            eventObjs.append(event(pulseHeights=pulseHeight,
+                                   t=self.eventTimes[num]))
+
+        if returnObjs:
+
+            return eventObjs
+
+        else:
+
+            import pickle
+
+            fname = self.fname
+            fname = list(fname)
+            fname[-3:] = ['p','k','l']
+            fname = "".join(fname)
+            outFile = open(fname, 'w')
+            pickle.dump(eventObjs,outFile)

@@ -23,7 +23,9 @@ class event:
             self.regionMain = -1
             self.ratioMain = -1
 
-        elif self.pulseHeights[self.maxStrip] < self.minHeight:
+        elif self.pulseHeights[self.maxStrip] < self.minHeight \
+            or self.pulseHeights[self.maxStrip-1] < self.minHeight \
+            or self.pulseHeights[self.maxStrip+1] < self.minHeight:
 
             # The event doesn't meet the minimum pulse height requirements,
             # and is not a good event
