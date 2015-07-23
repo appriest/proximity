@@ -38,22 +38,22 @@ class event:
             if self.maxStrip + 1 > self.maxStrip - 1:
 
                 # Main event info used to reconstruct the event
-                self.regionMain = 2*self.maxStrip - 1
+                self.regionMain = 2*self.maxStrip + 1
                 self.ratioMain = self.pulseHeights[self.maxStrip]/ \
                     self.pulseHeights[self.maxStrip+1]
 
                 # Secondary region for meta reconstruction purposes
-                self.regionSec = 2*self.maxStrip - 2
+                self.regionSec = 2*self.maxStrip
                 self.ratioSec = self.pulseHeights[self.maxStrip]/ \
                     self.pulseHeights[self.maxStrip-1]
 
             elif self.maxStrip + 1 < self.maxStrip - 1:
 
-                self.regionMain = 2*self.maxStrip - 2
+                self.regionMain = 2*self.maxStrip
                 self.ratioMain = self.pulseHeights[self.maxStrip]/ \
                     self.pulseHeights[self.maxStrip-1]
 
-                self.regionSec = 2*self.maxStrip - 1
+                self.regionSec = 2*self.maxStrip + 1
                 self.ratioSec = self.pulseHeights[self.maxStrip]/ \
                     self.pulseHeights[self.maxStrip+1]
 
@@ -66,3 +66,19 @@ class event:
         else:
 
             return 0
+
+    def returnRatioMain(self):
+
+        return self.ratioMain
+
+    def returnRatioSec(self):
+
+        return self.ratioSec
+
+    def returnRegionMain(self):
+
+        return self.regionMain
+
+    def returnRegionSec(self):
+
+        return self.regionSec

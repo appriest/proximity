@@ -3,7 +3,7 @@ import scipy as sp
 from eventClass import event
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 class calibration:
 
@@ -30,9 +30,9 @@ class calibration:
         self.numStrips = numStrips
         self.numBins = numBins
         self.stripPitch = stripPitch
-        self.numEvents = np.zeros(self.numStrips)
-        self.rhist = np.zeros((self.numStrips,self.numBins))
-        self.mapping = np.zeros((self.numStrips, self.numBins))
+        self.numEvents = np.zeros(self.numStrips*2-2)
+        self.rhist = np.zeros((self.numStrips*2-2,self.numBins))
+        self.mapping = np.zeros((self.numStrips*2-2, self.numBins))
 
     def addEvent(self, e = None):
 
@@ -48,8 +48,9 @@ class calibration:
             print "You didn't provide an event to add! Try again...\n"
             return 1
 
-        self.rhist[e.regionMain, np.floor(1000*e.ratioMain)] += 1
-        self.numEvents[e.regionMain] += 1
+        if e.ratioMain*1000 < self.numBins:
+            self.rhist[e.regionMain, np.floor(1000*e.ratioMain)] += 1
+            self.numEvents[e.regionMain] += 1
 
     def updateMap(self):
 

@@ -41,6 +41,7 @@ class pixieParser:
         except IOError:
 
             print "The file you entered does not exist."
+            return None
 
         if moduleNum is None:
 
