@@ -35,25 +35,30 @@ class event:
         else:
 
             #The event has passed all requirements and is a good event
+
+            # The event is to the right of the max strip
             if self.maxStrip + 1 > self.maxStrip - 1:
 
                 # Main event info used to reconstruct the event
-                self.regionMain = 2*self.maxStrip + 1
+                self.regionMain = 2*self.maxStrip - 1
                 self.ratioMain = self.pulseHeights[self.maxStrip]/ \
                     self.pulseHeights[self.maxStrip+1]
 
                 # Secondary region for meta reconstruction purposes
-                self.regionSec = 2*self.maxStrip
+                self.regionSec = 2*self.maxStrip - 2
                 self.ratioSec = self.pulseHeights[self.maxStrip]/ \
                     self.pulseHeights[self.maxStrip-1]
 
+            # The event is to the left of the max strip
             elif self.maxStrip + 1 < self.maxStrip - 1:
 
-                self.regionMain = 2*self.maxStrip
+                # Main event info used to reconstruct the event
+                self.regionMain = 2*self.maxStrip - 2
                 self.ratioMain = self.pulseHeights[self.maxStrip]/ \
                     self.pulseHeights[self.maxStrip-1]
 
-                self.regionSec = 2*self.maxStrip + 1
+                # Secondary region for meta reconstruction purposes
+                self.regionSec = 2*self.maxStrip - 1
                 self.ratioSec = self.pulseHeights[self.maxStrip]/ \
                     self.pulseHeights[self.maxStrip+1]
 

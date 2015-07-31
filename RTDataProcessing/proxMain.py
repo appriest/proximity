@@ -4,7 +4,7 @@ import calibrationClass as cc
 
 def analyzeData():
 
-    p1 = pp.pixieParser(fname="Proximity_scan_120814_0042.bin",
+    p1 = pp.pixieParser(fname="Prox_0075.bin",
                         moduleNum=2,channelNum=[4,4])
 
     p1.readBinFile()

@@ -30,7 +30,7 @@ class calibration:
         self.numStrips = numStrips
         self.numBins = numBins
         self.stripPitch = stripPitch
-        self.numEvents = np.zeros(self.numStrips*2-2)
+        self.numEvents = np.zeros(self.numStrips*2-4)
         self.rhist = np.zeros((self.numStrips*2-2,self.numBins))
         self.mapping = np.zeros((self.numStrips*2-2, self.numBins))
 
