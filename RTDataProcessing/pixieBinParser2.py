@@ -77,7 +77,7 @@ class pixieParser:
 
         self.f.seek(0, os.SEEK_SET)
 
-    def readBinFile(self):
+    def readBinFile(self,quiet=1):
 
         '''
         File: pixieBinParser2.py
@@ -117,7 +117,9 @@ class pixieParser:
             numEvents = (buffersize - 6)/11
             numBuffers = numBuffers + 1
 
-            print "Reading ", numEvents, " events from Module ", module, "..."
+            if quiet != 1:
+                print "Reading ", numEvents, " events from Module ", module, \
+                    "..."
 
             for event in range(int(numEvents)):
 
@@ -133,22 +135,42 @@ class pixieParser:
                     self.energies[module][channel].append(energyCh)
 
                 # Module number check prevents redundancy
-                if module == 0:
-                    self.eventTimes.append(bufTimeHi*2**32 + eventTimeHi*2**16 \
-                        + eventTimeLo)
+                eTime = bufTimeHi*2**32 + eventTimeHi*2**16 + eventTimeLo
+                self.eventTimes.append(eTime)
+                '''
+                if len(self.eventTimes) == 0:
+                    self.eventTimes.append(eTime)
+                elif eTime - self.eventTimes[-1] > 3:
+                    self.eventTimes.append(eTime)
+                # else:
+                    # Do nothing; these would be redundant events
+                '''
 
         self.e_objects = []
         chani = 0
 
-        for mod in self.energies:
+        if quiet != 1:
+            for mod in self.energies:
 
-            for chan in mod:
+                for chan in mod:
 
-                print "There are ", len(chan), " events in Ch. ", chani
+                    print "There are ", len(chan), " events in Ch. ", chani
 
-                chani += 1
+                    chani += 1
 
             #self.e_objects.append(event([e0,e1,e2,e3,e4,e5,e6,e7],t))
+
+        print "len(eventTimes): ", len(self.eventTimes)
+        print "len(energies[0][0]: ", len(self.energies[0][0])
+        print "len(energies[1][0]: ", len(self.energies[1][0])
+        print "Example event: ", self.energies[0][0][0], ',', \
+            self.energies[0][1][0], ',',\
+            self.energies[0][2][0], ',',\
+            self.energies[0][3][0], ',',\
+            self.energies[1][0][0], ',',\
+            self.energies[1][1][0], ',',\
+            self.energies[1][2][0], ',',\
+            self.energies[1][3][0]
 
     def writeTxtFile(self):
 
@@ -191,7 +213,8 @@ class pixieParser:
 
             totalCh += chNum
 
-        outputArray = np.zeros((len(self.eventTimes),totalCh))
+        dim0 = max([len(self.energies[0][0]),len(self.energies[1][0])])
+        outputArray = np.zeros((dim0,totalCh))
 
         for m,module in enumerate(self.energies):
 
@@ -244,7 +267,10 @@ class pixieParser:
 
             totalCh += chNum
 
-        outputArray = np.zeros((len(self.eventTimes),totalCh))
+        dim0 = max([len(self.energies[0][0]),len(self.energies[1][0])])
+        outputArray = np.zeros((dim0,totalCh))
+        #outputArray = np.zeros(max([len(self.energies[0][0]),
+        #                            len(self.energies[1][0])]),totalCh)
 
         for m,module in enumerate(self.energies):
 

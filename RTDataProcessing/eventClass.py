@@ -37,7 +37,8 @@ class event:
             #The event has passed all requirements and is a good event
 
             # The event is to the right of the max strip
-            if self.maxStrip + 1 > self.maxStrip - 1:
+            if self.pulseHeights[self.maxStrip + 1] > \
+                    self.pulseHeights[self.maxStrip - 1]:
 
                 # Main event info used to reconstruct the event
                 self.regionMain = 2*self.maxStrip - 1
@@ -50,7 +51,10 @@ class event:
                     self.pulseHeights[self.maxStrip-1]
 
             # The event is to the left of the max strip
-            elif self.maxStrip + 1 < self.maxStrip - 1:
+            #elif self.pulseHeights[self.maxStrip + 1] < \
+            #        self.pulseHeights[self.maxStrip - 1]:
+
+            else:
 
                 # Main event info used to reconstruct the event
                 self.regionMain = 2*self.maxStrip - 2

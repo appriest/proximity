@@ -1,6 +1,7 @@
 import numpy as np
 import scipy as sp
 from eventClass import event
+import matplotlib.pyplot as plt
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
 #import matplotlib.pyplot as plt
@@ -8,7 +9,7 @@ from pyqtgraph.Qt import QtGui, QtCore
 class calibration:
 
     def __init__(self, calType = 0, stripPitch = 5., numBins = 2000, \
-                 numStrips = 8):
+                 moduleNum=2, channelNum=[4,4]):
 
         '''Usage: calibration(calType=0,stripPitch=5.,numBins=2000,numStrips=8)
 
@@ -27,12 +28,14 @@ class calibration:
 
         self.notes = ""
         self.calType = calType
-        self.numStrips = numStrips
+        self.moduleNum = moduleNum
+        self.channelNum = channelNum
+        self.numStrips = sum(self.channelNum)
         self.numBins = numBins
         self.stripPitch = stripPitch
         self.numEvents = np.zeros(self.numStrips*2-4)
-        self.rhist = np.zeros((self.numStrips*2-2,self.numBins))
-        self.mapping = np.zeros((self.numStrips*2-2, self.numBins))
+        self.rhist = np.zeros((self.numStrips*2-4,self.numBins))
+        self.mapping = np.zeros((self.numStrips*2-4, self.numBins))
 
     def addEvent(self, e = None):
 
@@ -48,9 +51,88 @@ class calibration:
             print "You didn't provide an event to add! Try again...\n"
             return 1
 
-        if e.ratioMain*1000 < self.numBins:
-            self.rhist[e.regionMain, np.floor(1000*e.ratioMain)] += 1
+        if e.ratioMain*100 < self.numBins and e.regionMain >= 0:
+            self.rhist[e.regionMain, np.floor(100*e.ratioMain)] += 1
             self.numEvents[e.regionMain] += 1
+
+    def callParser(self,fname=None,folderName=None):
+
+        '''
+        File: calibrationClass.py
+        Author: Anders Priest
+        Description: Use this function to load raw data from binary files,
+            either from a single file or from a set of files from a directory.
+            If a directory name is given, all .bin files from that directory
+            will be loaded, and other files will be ignored. If the name of a
+            file and the name of a folder are given, this will result in an
+            error. The specified folder must be in the current working
+            directory.
+        '''
+
+        if fname is not None and folderName is not None:
+
+            print "You cannot provide both a file name and a folder name!\n"
+            return 1
+
+        import pixieBinParser2 as pp
+
+        if fname is not None:
+
+            print "Reading ", fname, "..."
+            prsr = pp.pixieParser(fname=fname,moduleNum=self.moduleNum,
+                                  channelNum=self.channelNum)
+
+            prsr.readBinFile()
+
+            eventList = prsr.makeAndWriteEvents()
+
+            for e in eventList:
+
+                self.addEvent(e)
+
+            print "Done!\n"
+
+        elif folderName is not None:
+
+            import os
+
+            curDir = os.getcwd()
+
+            fileDir = curDir + '/' + folderName
+
+            eventList = []
+
+            for thisFile in os.listdir(fileDir):
+
+                if thisFile[-4:] == '.bin':
+
+                    print "Reading ", thisFile, "..."
+                    prsrPath = folderName + '/' + thisFile
+                    prsr = pp.pixieParser(fname=prsrPath,
+                                         moduleNum=self.moduleNum,
+                                         channelNum=self.channelNum)
+                    prsr.readBinFile()
+                    eventList = prsr.makeAndWriteEvents()
+
+                    for e in eventList:
+                        self.addEvent(e)
+
+                    del prsr
+                    print "Done!\n"
+
+                else:
+
+                    print "Skipping ", thisFile, ", because it is not a \
+                        .bin file..."
+
+            print "Done!\n"
+
+        else:
+
+            print "You didn't specify anything!\n"
+            return 1
+
+        self.updateMap()
 
     def updateMap(self):
 
@@ -64,15 +146,15 @@ class calibration:
 
         print "Updating map plot...\n"
 
-        self.mapping = np.array([[sum(subArray[:i+1])/self.numEvents[j] \
-                                 for i,ratio in enumerate(subArray)] \
+        self.mapping = np.array([[sum(subArray[0:i+100])/self.numEvents[j] \
+                                  for i,ratio in enumerate(subArray[100:])] \
                                  for j,subArray in enumerate(self.rhist)])
 
         self.mapping = self.mapping*self.stripPitch/2.
 
         self.plotMap()
 
-    def plotMap(self, region = None):
+    def plotMap(self, regions = None):
 
         '''Usage: plotMap(region = None)
 
@@ -81,24 +163,27 @@ class calibration:
 
         Simply plots the mapping for the region given or for all regions.'''
 
-        if region == None:
+        if regions == None:
 
             # Plots the current mapping between ratio and position for all
             # regions
 
             print "Plotting map for all regions...\n"
 
-            win = pg.GraphicsWindow(title="Ratio to Position Mapping")
-            p1 = win.addPlot(title = "Ratio vs. Position")
+            p1 = pg.plot(title = "Ratio vs. Position")
+            p1.addLegend()
 
-            x = np.arange(self.numBins)/self.numBins*self.stripPitch
+            ratioX = np.linspace(1.,20.,num=1900)
 
             for region, ratioMap in enumerate(self.mapping):
 
-                p1.plot(x,ratioMap)
+                lineName = "  Region " + str(region)
+                p1.plot(ratioMap,ratioX, pen=(region,self.numStrips),
+                        name=lineName)
 
             p1.setLabel('left',"Ratio")
             p1.setLabel('bottom',"Position within region", units='mm')
+            p1.showGrid(x=True,y=True)
 
             import sys
             if(sys.flags.interactive != 1) or not hasattr(QtCore,
@@ -110,17 +195,21 @@ class calibration:
             # Plots the current mapping between ratio and position for the
             # region listed
 
-            print "Plotting map for region ", region, "...\n"
+            print "Plotting map for regions ", regions, "...\n"
 
-            win = pg.GraphicsWindow(title="Ratio to Position Mapping")
-            p1 = win.addPlot(title = "Ratio vs. Position")
+            p1 = pg.plot(title = "Ratio vs. Position")
+            p1.addLegend()
 
-            x = np.arange(self.numBins)/self.numBins*self.stripPitch
+            ratioX = np.linspace(1.,20.,num=1900)
 
-            p1.plot(x,self.mapping[:,region])
+            for i,region in enumerate(regions):
+                lineName = "  Region " + str(region)
+                p1.plot(self.mapping[region,:],ratioX,pen=(i,len(regions)),
+                                                    name=lineName)
 
             p1.setLabel('left',"Ratio")
             p1.setLabel('bottom',"Position within region", units='mm')
+            p1.showGrid(x=True,y=True)
 
             import sys
             if(sys.flags.interactive != 1) or not hasattr(QtCore,
