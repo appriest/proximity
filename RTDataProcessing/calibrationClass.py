@@ -178,7 +178,7 @@ class calibration:
             for region, ratioMap in enumerate(self.mapping):
 
                 lineName = "  Region " + str(region)
-                p1.plot(ratioMap,ratioX, pen=(region,self.numStrips),
+                p1.plot(ratioMap,ratioX, pen=(region,len(self.mapping)),
                         name=lineName)
 
             p1.setLabel('left',"Ratio")
@@ -216,7 +216,7 @@ class calibration:
                                                           'PYQT_VERSION'):
                 QtGui.QApplication.instance().exec_()
 
-    def plotHist(self, region = None):
+    def plotHist(self, regions = None):
 
         '''Usage: plotHist(region = None)
 
@@ -224,23 +224,22 @@ class calibration:
 
         Plots the current ratio histograms for the regions.'''
 
-        if region == None:
+        if regions == None:
 
             # Plot all regions
 
             print "Plotting ratio histogram for all regions...\n"
 
-            histWin = pg.GraphicsWindow(title="Ratio Histograms for All \
-                                        Regions")
-
-            histPlot = histWin.addPlot(title = "Ratio Histograms")
+            histPlot = pg.plot(title = "Ratio Histograms")
+            histPlot.addLegend()
 
             histPlot.setLabel('left',"Counts")
             histPlot.setLabel('bottom',"Ratio")
 
-            for hist in self.rhist:
+            for i,hist in enumerate(self.rhist):
 
-                histPlot.plot(hist)
+                histName = "  Region " + str(i)
+                histPlot.plot(hist, pen=(i,len(self.rhist)), name=histName)
 
             import sys
             if(sys.flags.interactive != 1) or not hasattr(QtCore,
@@ -251,17 +250,19 @@ class calibration:
 
             # Plot the region listed
 
-            print "Plotting ratio histogram for region", region, "...\n"
+            print "Plotting ratio histogram for region", regions, "...\n"
 
-            title = "Ratio Histogram for Region " + str(region)
-            histWin = pg.GraphicsWindow(title=title)
-
-            histPlot = histWin.addPlot(title = "Ratio Histogram")
+            histPlot = pg.plot(title = "Ratio Histogram")
+            histPlot.addLegend()
 
             histPlot.setLabel('left',"Counts")
             histPlot.setLabel('bottom',"Ratio")
 
-            histPlot.plot(self.rhist[region,:])
+            for i,region in enumerate(regions):
+
+                histName = "  Region " + str(region)
+                histPlot.plot(self.rhist[region,:],pen=(i,len(regions)),
+                              name=histName)
 
             import sys
             if(sys.flags.interactive != 1) or not hasattr(QtCore,
