@@ -1,4 +1,4 @@
-import pixieBinParser2 as pp
+import pixieBinParser as pp
 import eventClass as ec
 import calibrationClass as cc
 

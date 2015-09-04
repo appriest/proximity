@@ -9,7 +9,7 @@ from pyqtgraph.Qt import QtGui, QtCore
 class calibration:
 
     def __init__(self, calType = 0, stripPitch = 5., numBins = 2000, \
-                 moduleNum=2, channelNum=[4,4]):
+                 moduleNum=2, channelNum=[4,4], numWPbins = 500):
 
         '''Usage: calibration(calType=0,stripPitch=5.,numBins=2000,numStrips=8)
 
@@ -36,6 +36,7 @@ class calibration:
         self.numEvents = np.zeros(self.numStrips*2-4)
         self.rhist = np.zeros((self.numStrips*2-4,self.numBins))
         self.mapping = np.zeros((self.numStrips*2-4, self.numBins))
+        self.numWPbins = numWPbins
 
     def addEvent(self, e = None):
 
@@ -74,7 +75,7 @@ class calibration:
             print "You cannot provide both a file name and a folder name!\n"
             return 1
 
-        import pixieBinParser2 as pp
+        import pixieBinParser as pp
 
         if fname is not None:
 
@@ -269,6 +270,20 @@ class calibration:
                                                           'PYQT_VERSION'):
                 QtGui.QApplication.instance().exec_()
 
+    def reconstructWP(self):
+
+        '''
+        File: calibrationClass.py
+        Author: Anders Priest
+        Description: Loops through event positions and max pulseheights,
+            generates a pulseheight histogram for each position and finds the
+            centroid, which is then saved as the WP for that position. The WPs
+            are then normalized by the max height and multiplied by a factor
+            equal to the measured max WP height.
+        '''
+
+
+
     def writeCalToFile(self, fname = None):
 
         '''Usage: writeCalToFile(fname = None)
@@ -348,19 +363,33 @@ class calibration:
 
         if e == None:
 
-            print "Don't forget to take these print statements out before \
-                trying to use this!\n"
             print "Please provide a valid event of class type 'event'!\n"
 
         else:
 
-            print "Don't forget to take these print statements out before \
-                trying to use this!\n"
-            print "Mapping event...\n"
+            index = round(e.ratioMain*100)
+            if index > 0 and index < self.numBins:
+                x = self.mapping[index]
 
-            # Map event
+            E = e.pulseHeights[e.maxStrip]/self.mapXtoWP(x=x) * \
+                self.energyCal[e.maxStrip]
 
-            print "Done!\n\n"
+            return [x,E]
+
+    def mapXtoWP(self,x=None):
+
+        '''
+        File: calibrationClass.py
+        Author: Anders Priest
+        Description: Maps position to the reconstructed weighting potential for
+            the region where the interaction occurred.
+        '''
+        if x is not None:
+            return self.wp[round(x/self.stripPitch*self.numWPbins)]
+        else:
+            print "You need to provide a position to map a weighting potential\
+                to!"
+            return 0
 
     def calProperties(self):
 
