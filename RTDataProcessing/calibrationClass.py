@@ -291,6 +291,9 @@ class calibration:
             equal to the measured max WP height.
         '''
 
+        for e in self.events:
+
+            e.addposition(self.mapEvent(e = e, xOnly = 1))
 
 
     def writeCalToFile(self, fname = None):
@@ -357,7 +360,7 @@ class calibration:
 
             print "...\nFinished!\n"
 
-    def mapEvent(self, e = None):
+    def mapEvent(self, e = None, xOnly = 0, EOnly = 0, x = None):
 
         '''Usage: mapEvent(e = None)
 
@@ -376,12 +379,31 @@ class calibration:
 
         else:
 
-            index = round(e.ratioMain*100)
-            if index > 0 and index < self.numBins:
-                x = self.mapping[index]
+            if xOnly == 0 and EOnly == 0:
+                xOnly = 1
+                EOnly = 1
+                both = 1
+            elif xOnly == 1 and EOnly == 1:
+                both = 1
+            else:
+                both = 0
 
-            E = e.pulseHeights[e.maxStrip]/self.mapXtoWP(x=x) * \
-                self.energyCal[e.maxStrip]
+            if xOnly == 1:
+                index = round(e.ratioMain*100)
+                if index > 99 and index < self.numBins:
+                    x = self.mapping[index]
+                else:
+                    x = None
+
+                if both == 0:
+                    return x
+
+            if EOnly == 1 and x is not None:
+                E = e.pulseHeights[e.maxStrip]/self.mapXtoWP(x=x) * \
+                    self.energyCal[e.maxStrip]
+
+                if both == 0:
+                    return E
 
             return [x,E]
 

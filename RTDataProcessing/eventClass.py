@@ -91,3 +91,11 @@ class event:
     def returnRegionSec(self):
 
         return self.regionSec
+
+    def addPosition(self, x):
+
+        self.x = x
+
+    def returnPosition(self):
+
+        return self.x
