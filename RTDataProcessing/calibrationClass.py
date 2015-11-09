@@ -37,6 +37,9 @@ class calibration:
         self.rhist = np.zeros((self.numStrips*2-4,self.numBins))
         self.mapping = np.zeros((self.numStrips*2-4, self.numBins))
         self.numWPbins = numWPbins
+        self.numGoodEvents = 0
+        self.numBadEvents = 0
+        self.events = []
 
     def addEvent(self, e = None):
 
@@ -52,9 +55,15 @@ class calibration:
             print "You didn't provide an event to add! Try again...\n"
             return 1
 
-        if e.ratioMain*100 < self.numBins and e.regionMain >= 0:
+        if e.ratioMain*100 < self.numBins and e.regionMain >= 0 \
+                and e.isGoodEvent:
             self.rhist[e.regionMain, np.floor(100*e.ratioMain)] += 1
             self.numEvents[e.regionMain] += 1
+            self.events.append(e)
+            self.numGoodEvents += 1
+
+        else:
+            self.numBadEvents += 1
 
     def callParser(self,fname=None,folderName=None):
 
