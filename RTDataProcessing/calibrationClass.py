@@ -4,12 +4,14 @@ from eventClass import event
 import matplotlib.pyplot as plt
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
+import numpy.ma as ma
 #import matplotlib.pyplot as plt
 
 class calibration:
 
     def __init__(self, calType = 0, stripPitch = 5., numBins = 2000, \
-                 moduleNum=2, channelNum=[4,4], numWPbins = 500):
+                 moduleNum=2, channelNum=[4,4], numWPbins = 500,
+                 maxWP = 0.75):
 
         '''Usage: calibration(calType=0,stripPitch=5.,numBins=2000,numStrips=8)
 
@@ -40,6 +42,7 @@ class calibration:
         self.numGoodEvents = 0
         self.numBadEvents = 0
         self.events = []
+        self.maxWP = maxWP
 
     def addEvent(self, e = None):
 
@@ -161,8 +164,6 @@ class calibration:
                                  for j,subArray in enumerate(self.rhist)])
 
         self.mapping = self.mapping*self.stripPitch/2.
-
-        self.plotMap()
 
     def plotMap(self, regions = None):
 
@@ -291,10 +292,101 @@ class calibration:
             equal to the measured max WP height.
         '''
 
+        print "Reconstructing weighting potentials from the calibration data..."
+
+        self.WP = np.zeros((self.numStrips*2-4,int(np.ceil(50.*self.stripPitch/2.+1))))
+        self.WPmask = np.zeros((self.numStrips*2-4,int(np.ceil(50.*self.stripPitch/2.+1))))
+        wpReconstructHist = np.zeros((self.numStrips*2-4,int(np.ceil(50.*self.stripPitch/2.+1)),2000))
+
         for e in self.events:
 
-            e.addposition(self.mapEvent(e = e, xOnly = 1))
+            e.setPosition(self.mapEvent(e = e, xOnly = 1))
+            if max(e.pulseHeights) < 2000:
+                wpReconstructHist[e.regionMain][round(e.getPosition()*50)]\
+                    [round(max(e.pulseHeights)/3.)] += 1
 
+        for i,region in enumerate(wpReconstructHist):
+
+            for j,histAtPosition in enumerate(region):
+                
+                accumulator = 0
+
+                if sum(histAtPosition) > 1000:
+
+                    #peakPos = np.argmax(histAtPosition)
+                    for Ebin,histVal in enumerate(histAtPosition):
+                        accumulator += Ebin*histVal
+
+                    peakPos = accumulator/sum(histAtPosition)
+                
+                    self.WP[i][j] = peakPos
+
+                else:
+
+                    #peakPos = np.argmax(histAtPosition)
+                    for Ebin,histVal in enumerate(histAtPosition):
+                        accumulator += Ebin*histVal
+
+                    peakPos = accumulator/sum(histAtPosition)
+
+                    self.WP[i][j] = peakPos
+
+                    self.WPmask[i][j] = 1
+
+        for region,WP_r in enumerate(self.WP):
+            self.WP[region] = WP_r/max(WP_r)*self.maxWP
+
+        self.WPm = ma.array(self.WP,mask=self.WPmask)
+
+        self.wpReconstructHist = wpReconstructHist
+
+        print "Done!"
+
+    def plotWPs(self, masked=0):
+
+        WPPlot = pg.plot(title = "Weighting Potentials")
+        WPPlot.addLegend()
+
+        WPPlot.setLabel('left',"Weighting Potential")
+        WPPlot.setLabel('bottom',"Position (mm)")
+        # Plotting the weighting potentials across space
+
+        if masked == 0:
+            for region,wp_r in enumerate(self.WP):
+                WPname = " Region " + str(region)
+                if region % 2 == 0:
+                    WPPlot.plot(np.linspace(0,self.stripPitch/2.,
+                            len(wp_r))+np.ones((len(wp_r)))*region*self.stripPitch/2.,wp_r,
+                            pen=(region,len(self.WP)),name=WPname)
+                else:
+                    WPPlot.plot(np.linspace(0,self.stripPitch/2.,
+                            len(wp_r))+np.ones((len(wp_r)))*region*self.stripPitch/2.,wp_r[::-1],
+                            pen=(region,len(self.WP)),name=WPname)
+
+        elif masked == 1:
+            for region,wp_rm in enumerate(self.WPm):
+                WPname = " Region " + str(region)
+                if region % 2 == 0:
+                    xm = ma.array(np.linspace(0,self.stripPitch/2.,
+                        len(wp_rm))+np.ones((len(wp_rm)))*region*self.stripPitch/2.,
+                        mask=ma.getmaskarray(wp_rm))
+                    
+                    WPPlot.plot(xm, wp_rm, pen=(region,len(self.WP)), name=WPname)
+
+                else:
+                    
+                    xm = ma.array(np.linspace(0,self.stripPitch/2.,
+                        len(wp_rm))+np.ones((len(wp_rm)))*region*self.stripPitch/2.,
+                        mask=ma.getmaskarray(wp_rm))
+                    
+                    WPPlot.plot(xm, wp_rm[::-1], pen=(region,len(self.WP)), name=WPname)
+
+        WPPlot.showGrid(x=True,y=True)
+        
+        import sys
+        if(sys.flags.interactive != 1) or not hasattr(QtCore,
+                                                      'PYQT_VERSION'):
+            QtGui.QApplication.instance().exec_()
 
     def writeCalToFile(self, fname = None):
 
@@ -309,11 +401,13 @@ class calibration:
             print "Please provide a file name!"
 
         else:
-            # Write the current calibration to a file for later use
 
             print "Writing calibration to file: ", fname, "\n"
 
             # Write calibration
+            import pickle as pk
+
+            pk.dumps(self)
 
             print "...\nFinished!"
 
@@ -389,11 +483,8 @@ class calibration:
                 both = 0
 
             if xOnly == 1:
-                index = round(e.ratioMain*100)
-                if index > 99 and index < self.numBins:
-                    x = self.mapping[index]
-                else:
-                    x = None
+                index = round(e.ratioMain*100-100)
+                x = self.mapping[e.regionMain,index]
 
                 if both == 0:
                     return x

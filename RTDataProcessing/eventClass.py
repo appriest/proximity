@@ -68,7 +68,7 @@ class event:
 
     def isGoodEvent(self):
 
-        if self.regionMain > 0:
+        if self.regionMain > 0 and max(self.pulseHeights) < 15000 and self.x is not None:
 
             return 1
 
@@ -92,10 +92,10 @@ class event:
 
         return self.regionSec
 
-    def addPosition(self, x):
+    def setPosition(self, x):
 
         self.x = x
 
-    def returnPosition(self):
+    def getPosition(self):
 
         return self.x
