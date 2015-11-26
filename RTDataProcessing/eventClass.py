@@ -99,3 +99,11 @@ class event:
     def getPosition(self):
 
         return self.x
+
+    def setEnergy(self, E):
+
+        self.E = E
+
+    def getEnergy(self):
+
+        return self.E

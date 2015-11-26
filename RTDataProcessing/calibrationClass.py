@@ -43,6 +43,7 @@ class calibration:
         self.numBadEvents = 0
         self.events = []
         self.maxWP = maxWP
+        self.energyCal = np.ones((self.numStrips*2-4))
 
     def addEvent(self, e = None):
 
@@ -296,14 +297,14 @@ class calibration:
 
         self.WP = np.zeros((self.numStrips*2-4,int(np.ceil(50.*self.stripPitch/2.+1))))
         self.WPmask = np.zeros((self.numStrips*2-4,int(np.ceil(50.*self.stripPitch/2.+1))))
-        wpReconstructHist = np.zeros((self.numStrips*2-4,int(np.ceil(50.*self.stripPitch/2.+1)),2000))
+        wpReconstructHist = np.zeros((self.numStrips*2-4,int(np.ceil(50.*self.stripPitch/2.+1)),6500))
 
         for e in self.events:
 
             e.setPosition(self.mapEvent(e = e, xOnly = 1))
-            if max(e.pulseHeights) < 2000:
+            if max(e.pulseHeights) < 32000:
                 wpReconstructHist[e.regionMain][round(e.getPosition()*50)]\
-                    [round(max(e.pulseHeights)/3.)] += 1
+                    [round(max(e.pulseHeights)/5.)] += 1
 
         for i,region in enumerate(wpReconstructHist):
 
@@ -313,21 +314,21 @@ class calibration:
 
                 if sum(histAtPosition) > 1000:
 
-                    #peakPos = np.argmax(histAtPosition)
-                    for Ebin,histVal in enumerate(histAtPosition):
-                        accumulator += Ebin*histVal
+                    peakPos = np.argmax(histAtPosition)
+                    #for Ebin,histVal in enumerate(histAtPosition):
+                    #    accumulator += Ebin*histVal
 
-                    peakPos = accumulator/sum(histAtPosition)
+                    #peakPos = accumulator/sum(histAtPosition)
                 
                     self.WP[i][j] = peakPos
 
                 else:
 
-                    #peakPos = np.argmax(histAtPosition)
-                    for Ebin,histVal in enumerate(histAtPosition):
-                        accumulator += Ebin*histVal
+                    peakPos = np.argmax(histAtPosition)
+                    #for Ebin,histVal in enumerate(histAtPosition):
+                    #    accumulator += Ebin*histVal
 
-                    peakPos = accumulator/sum(histAtPosition)
+                    #peakPos = accumulator/sum(histAtPosition)
 
                     self.WP[i][j] = peakPos
 
@@ -489,16 +490,16 @@ class calibration:
                 if both == 0:
                     return x
 
-            if EOnly == 1 and x is not None:
-                E = e.pulseHeights[e.maxStrip]/self.mapXtoWP(x=x) * \
+            if EOnly == 1:
+                energy = e.pulseHeights[e.maxStrip]/self.mapXtoWP(e=e) * \
                     self.energyCal[e.maxStrip]
 
                 if both == 0:
-                    return E
+                    return energy
 
-            return [x,E]
+            return [x,energy]
 
-    def mapXtoWP(self,x=None):
+    def mapXtoWP(self,e=None):
 
         '''
         File: calibrationClass.py
@@ -506,12 +507,47 @@ class calibration:
         Description: Maps position to the reconstructed weighting potential for
             the region where the interaction occurred.
         '''
-        if x is not None:
-            return self.wp[round(x/self.stripPitch*self.numWPbins)]
+        if e is not None:
+            return self.WP[e.regionMain,round(e.getPosition()/self.stripPitch*float(np.shape(self.WP)[1]))]
         else:
             print "You need to provide a position to map a weighting potential\
                 to!"
             return 0
+
+    def energyCalibration(self):
+
+        print "Using good events to reconstruct the energy calibration..."
+        energies = []
+
+        for i,event in enumerate(self.events):
+
+            event.setEnergy(self.mapEvent(event,EOnly=1))
+            energies.append(event.getEnergy())
+
+        self.Ehist,self.EbinEdges = np.histogram(energies,bins=1000,range=(0,max(energies)))
+
+        histMax = np.argmax(self.Ehist)
+        
+        self.energyCal = 59.5/((self.EbinEdges[histMax+1]+self.EbinEdges[histMax])/2.)
+
+        self.EbinEdges = self.EbinEdges*self.energyCal
+
+        print "Done!\n\n"
+
+    def plotEnergyCal(self):
+
+            EhistPlot = pg.plot(title = "Calibration Data")
+
+            EhistPlot.setLabel('left',"Counts")
+            EhistPlot.setLabel('bottom',"Energy (keV)")
+
+            Ecurve = pg.PlotCurveItem(self.EbinEdges,self.Ehist,stepMode=True)
+            EhistPlot.addItem(Ecurve)
+
+            import sys
+            if(sys.flags.interactive != 1) or not hasattr(QtCore,
+                                                          'PYQT_VERSION'):
+                QtGui.QApplication.instance().exec_()
 
     def calProperties(self):
 
