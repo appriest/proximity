@@ -339,7 +339,7 @@ class calibration:
 
         self.WPm = ma.array(self.WP,mask=self.WPmask)
 
-        self.wpReconstructHist = wpReconstructHist
+        #self.wpReconstructHist = wpReconstructHist
 
         print "Done!"
 
