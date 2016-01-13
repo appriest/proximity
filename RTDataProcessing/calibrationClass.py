@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
 import numpy.ma as ma
-#import matplotlib.pyplot as plt
 
 class calibration:
 
@@ -41,33 +40,51 @@ class calibration:
         self.numWPbins = numWPbins
         self.numGoodEvents = 0
         self.numBadEvents = 0
-        self.events = []
         self.maxWP = maxWP
         self.energyCal = np.ones((self.numStrips*2-4))
 
-    def addEvent(self, e = None):
+        self.dt = np.dtype([('pulseHeights',np.int32,(self.numStrips,)),
+                ('regionMain',np.uint8),
+                ('regionSec',np.uint8),
+                ('ratioMain',np.float64),
+                ('ratioSec',np.float64),
+                ('t',np.uint32),
+                ('x',np.float32),
+                ('E',np.float32)])
 
-        ''' Usage: addEvent(e = eventClass.event)
+        self.allEvents = np.ndarray((0,),dtype=self.dt)
 
-        Adds the event ratio to the proper histogram and adds one to the
-        number of events for the region.'''
+        self.goodEvents = np.ndarray((0,),dtype=self.dt)
 
-        # rhist is an array containing the ratio histograms(regions = rows)
-        # for each of the regions (bins = columns)
+    def addEvents(self, eventArray = None):
 
-        if isinstance(e,event) == False:
-            print "You didn't provide an event to add! Try again...\n"
-            return 1
+        ''' Usage: addEvent(eventArray = None)
 
-        if e.ratioMain*100 < self.numBins and e.regionMain >= 0 \
-                and e.isGoodEvent:
-            self.rhist[e.regionMain, np.floor(100*e.ratioMain)] += 1
-            self.numEvents[e.regionMain] += 1
-            self.events.append(e)
-            self.numGoodEvents += 1
+            Provide a numpy masked array with the dtype matching the dtype defined
+            in this object. '''
+
+        if eventArray is None or eventArray.dtype != self.dt:
+
+            print "You did not provide a valid array! \n\n"
 
         else:
-            self.numBadEvents += 1
+
+            self.allEvents = np.append(self.allEvents,eventArray)
+
+            for i,event in enumerate(eventArray):
+
+                if event['isGood']:
+
+                    self.goodEvents = np.append(self.goodEvents,event)
+
+            ratios = []
+
+            for i in range(self.numStrips*2-4):
+
+                ratios.append([event['ratioMain'] for j,event in enumerate(self.goodEvent) \
+                        if event['regionMain'] == i])
+
+                self.rhist[i], = np.histogram(ratios[-1],bins=self.numBins,range=(0.,self.numBins/100.))
 
     def callParser(self,fname=None,folderName=None):
 
@@ -100,9 +117,7 @@ class calibration:
 
             eventList = prsr.makeAndWriteEvents()
 
-            for e in eventList:
-
-                self.addEvent(e)
+            self.addEvents(eventList)
 
             print "Done!\n"
 
@@ -128,8 +143,7 @@ class calibration:
                     prsr.readBinFile()
                     eventList = prsr.makeAndWriteEvents()
 
-                    for e in eventList:
-                        self.addEvent(e)
+                    self.addEvents(eventList)
 
                     del prsr
                     print "Done!\n"
@@ -153,7 +167,9 @@ class calibration:
         '''Usage: updateMap()
 
         Integrates over the ratio histograms for each region creating the
-        mapping from ratio to position.'''
+        mapping from ratio to position.
+        
+        *** Does not need event type update. *** '''
 
         # Updates the mapping from ratio to position
         # Performs an integral on the histograms for each of the regions
@@ -173,7 +189,9 @@ class calibration:
         region(int): If region is provided, only the mapping for the region
             provided will be mapped. Otherwise, all regions will be plotted.
 
-        Simply plots the mapping for the region given or for all regions.'''
+        Simply plots the mapping for the region given or for all regions.
+
+        *** Does not need event type update. *** '''
 
         if regions == None:
 
@@ -234,7 +252,9 @@ class calibration:
 
         region(int): Region to be plotted. If None, plots all regions.
 
-        Plots the current ratio histograms for the regions.'''
+        Plots the current ratio histograms for the regions.
+
+        *** Does not need event type update. *** '''
 
         if regions == None:
 
@@ -299,12 +319,13 @@ class calibration:
         self.WPmask = np.zeros((self.numStrips*2-4,int(np.ceil(50.*self.stripPitch/2.+1))))
         wpReconstructHist = np.zeros((self.numStrips*2-4,int(np.ceil(50.*self.stripPitch/2.+1)),6500))
 
-        for e in self.events:
+        for e in self.goodEvents:
 
-            e.setPosition(self.mapEvent(e = e, xOnly = 1))
-            if max(e.pulseHeights) < 32000:
-                wpReconstructHist[e.regionMain][round(e.getPosition()*50)]\
-                    [round(max(e.pulseHeights)/5.)] += 1
+            e['x'] = (self.mapEvent(e = e, xOnly = 1))
+            
+            if max(e['pulseHeights']) < 32000:
+                wpReconstructHist[e['regionMain']][round(e['x']*50.)]\
+                    [round(max(e['pulseHeights'])/5.)] += 1
 
         for i,region in enumerate(wpReconstructHist):
 
@@ -315,20 +336,12 @@ class calibration:
                 if sum(histAtPosition) > 1000:
 
                     peakPos = np.argmax(histAtPosition)
-                    #for Ebin,histVal in enumerate(histAtPosition):
-                    #    accumulator += Ebin*histVal
-
-                    #peakPos = accumulator/sum(histAtPosition)
                 
                     self.WP[i][j] = peakPos
 
                 else:
 
                     peakPos = np.argmax(histAtPosition)
-                    #for Ebin,histVal in enumerate(histAtPosition):
-                    #    accumulator += Ebin*histVal
-
-                    #peakPos = accumulator/sum(histAtPosition)
 
                     self.WP[i][j] = peakPos
 
@@ -337,9 +350,7 @@ class calibration:
         for region,WP_r in enumerate(self.WP):
             self.WP[region] = WP_r/max(WP_r)*self.maxWP
 
-        self.WPm = ma.array(self.WP,mask=self.WPmask)
-
-        #self.wpReconstructHist = wpReconstructHist
+        self.WPm = ma.MaskedArray(self.WP,mask=self.WPmask)
 
         print "Done!"
 
@@ -484,15 +495,15 @@ class calibration:
                 both = 0
 
             if xOnly == 1:
-                index = round(e.ratioMain*100-100)
-                x = self.mapping[e.regionMain,index]
+                index = round(e['ratioMain']*100-100)
+                x = self.mapping[e['regionMain'],index]
 
                 if both == 0:
                     return x
 
             if EOnly == 1:
-                energy = e.pulseHeights[e.maxStrip]/self.mapXtoWP(e=e) * \
-                    self.energyCal[e.maxStrip]
+                energy = e['pulseHeights'][np.argmax(e['pulseHeights'])]/self.mapXtoWP(e=e) * \
+                    self.energyCal[np.argmax(e['pulseHeights'])]
 
                 if both == 0:
                     return energy
@@ -508,7 +519,8 @@ class calibration:
             the region where the interaction occurred.
         '''
         if e is not None:
-            return self.WP[e.regionMain,round(e.getPosition()/self.stripPitch*float(np.shape(self.WP)[1]))]
+            return self.WP[e['regionMain'],round(e['x']/ \
+                    self.stripPitch*float(np.shape(self.WP)[1]))]
         else:
             print "You need to provide a position to map a weighting potential\
                 to!"
@@ -519,10 +531,10 @@ class calibration:
         print "Using good events to reconstruct the energy calibration..."
         energies = []
 
-        for i,event in enumerate(self.events):
+        for i,event in enumerate(self.goodEvents):
 
-            event.setEnergy(self.mapEvent(event,EOnly=1))
-            energies.append(event.getEnergy())
+            event['E'] = self.mapEvent(event,EOnly=1)
+            energies.append(event['E'])
 
         self.Ehist,self.EbinEdges = np.histogram(energies,bins=1000,range=(0,max(energies)))
 
@@ -536,18 +548,20 @@ class calibration:
 
     def plotEnergyCal(self):
 
-            EhistPlot = pg.plot(title = "Calibration Data")
+        ''' *** Does not need event type update. *** '''
 
-            EhistPlot.setLabel('left',"Counts")
-            EhistPlot.setLabel('bottom',"Energy (keV)")
+        EhistPlot = pg.plot(title = "Calibration Data")
 
-            Ecurve = pg.PlotCurveItem(self.EbinEdges,self.Ehist,stepMode=True)
-            EhistPlot.addItem(Ecurve)
+        EhistPlot.setLabel('left',"Counts")
+        EhistPlot.setLabel('bottom',"Energy (keV)")
 
-            import sys
-            if(sys.flags.interactive != 1) or not hasattr(QtCore,
+        Ecurve = pg.PlotCurveItem(self.EbinEdges,self.Ehist,stepMode=True)
+        EhistPlot.addItem(Ecurve)
+
+        import sys
+        if(sys.flags.interactive != 1) or not hasattr(QtCore,
                                                           'PYQT_VERSION'):
-                QtGui.QApplication.instance().exec_()
+            QtGui.QApplication.instance().exec_()
 
     def calProperties(self):
 

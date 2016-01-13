@@ -3,6 +3,7 @@ from eventClass import *
 import numpy as np
 import os
 import time
+import numpy.ma as ma
 
 class pixieParser:
 
@@ -84,6 +85,7 @@ class pixieParser:
         Author: Anders Priest
         Description: Once initialized, execute this function to read the file.
                 This will populate self.energies and self.eventTimes as read
+                    eventArray['isGood'][num] = True
                 from the binary file.
         '''
 
@@ -146,7 +148,6 @@ class pixieParser:
                     # Do nothing; these would be redundant events
                 '''
 
-        self.e_objects = []
         chani = 0
 
         if quiet != 1:
@@ -157,8 +158,6 @@ class pixieParser:
                     print "There are ", len(chan), " events in Ch. ", chani
 
                     chani += 1
-
-            #self.e_objects.append(event([e0,e1,e2,e3,e4,e5,e6,e7],t))
 
         print "len(eventTimes): ", len(self.eventTimes)
         print "len(energies[0][0]: ", len(self.energies[0][0])
@@ -252,7 +251,7 @@ class pixieParser:
         print "Finished writing file."
         print len(outputArray), "events written."
 
-    def makeAndWriteEvents(self, returnObjs=1):
+    def makeAndWriteEvents(self, returnArray=1):
 
         '''
         File: pixieBinParser2.py
@@ -269,8 +268,6 @@ class pixieParser:
 
         dim0 = max([len(self.energies[0][0]),len(self.energies[1][0])])
         outputArray = np.zeros((dim0,totalCh))
-        #outputArray = np.zeros(max([len(self.energies[0][0]),
-        #                            len(self.energies[1][0])]),totalCh)
 
         for m,module in enumerate(self.energies):
 
@@ -282,16 +279,73 @@ class pixieParser:
 
         outputArray = list(outputArray)
 
-        eventObjs = []
+        dt = np.dtype([('pulseHeights',np.int32,(len(outputArray[0]),)),
+                ('regionMain',np.uint8),
+                ('regionSec',np.uint8),
+                ('ratioMain',np.float64),
+                ('ratioSec',np.float64),
+                ('t',np.uint32),
+                ('x',np.float32),
+                ('E',np.float32),
+                ('isGood',np.bool_)])
+
+        eventArray = np.zeros((len(self.eventTimes,)),dtype=dt)
 
         for num,pulseHeight in enumerate(outputArray):
 
-            eventObjs.append(event(pulseHeights=pulseHeight,
-                                   t=self.eventTimes[num]))
+            eventArray['pulseHeights'][num] = pulseHeight
+            eventArray['t'][num] = self.eventTimes[num]
 
-        if returnObjs:
+            # Note: These checks will not work on multi-site events. Change to check all
+            #   channels for second highest pulse height
 
-            return eventObjs
+            if np.argmax(pulseHeight) != 0 and np.argmax(pulseHeight) != sum(self.channelNum)-1:
+
+                regionLeftCheck = np.sum(pulseHeight[np.argmax(pulseHeight)-1]*np.ones(len(pulseHeight))
+                        >pulseHeight)
+
+                regionRightCheck = np.sum(pulseHeight[np.argmax(pulseHeight)+1]*np.ones(len(pulseHeight))
+                        >pulseHeight)
+
+                if regionLeftCheck == 6 and pulseHeight[np.argmax(pulseHeight)-1] != 0:
+            
+                    eventArray['regionMain'][num] = 2 * np.argmax(pulseHeight) - 2
+                    eventArray['regionSec'][num] = 2 * np.argmax(pulseHeight) - 1
+                    eventArray['ratioMain'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
+                                    pulseHeight[np.argmax(pulseHeight)-1]
+                    eventArray['ratioSec'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
+                                    pulseHeight[np.argmax(pulseHeight)+1]
+                    eventArray['isGood'][num] = True
+
+                elif regionRightCheck == 6 and pulseHeight[np.argmax(pulseHeight)+1] != 0:
+
+                    eventArray['regionMain'][num] = 2 * np.argmax(pulseHeight) - 1
+                    eventArray['regionSec'][num] = 2 * np.argmax(pulseHeight) - 2
+                    eventArray['ratioMain'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
+                                    pulseHeight[np.argmax(pulseHeight)+1]
+                    eventArray['ratioSec'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
+                                    pulseHeight[np.argmax(pulseHeight)-1]
+                    eventArray['isGood'][num] = True
+
+                else:
+
+                    eventArray['regionMain'][num] = -1
+                    eventArray['regionSec'][num] = -1
+                    eventArray['ratioMain'][num] = -1
+                    eventArray['ratioSec'][num] = -1
+                    eventArray['isGood'][num] = False
+
+            else:
+
+                eventArray['regionMain'][num] = -1
+                eventArray['regionSec'][num] = -1
+                eventArray['ratioMain'][num] = -1
+                eventArray['ratioSec'][num] = -1
+                eventArray['isGood'][num] = False
+
+        if returnArray:
+
+            return eventArray
 
         else:
 
