@@ -44,15 +44,17 @@ class calibration:
         self.energyCal = np.ones((self.numStrips*2-4))
 
         self.dt = np.dtype([('pulseHeights',np.int32,(self.numStrips,)),
-                ('regionMain',np.uint8),
-                ('regionSec',np.uint8),
+                ('regionMain',np.int8),
+                ('regionSec',np.int8),
                 ('ratioMain',np.float64),
                 ('ratioSec',np.float64),
                 ('t',np.uint32),
                 ('x',np.float32),
-                ('E',np.float32)])
+                ('E',np.float32),
+                ('isGood',np.bool_)])
 
-        self.allEvents = np.ndarray((0,),dtype=self.dt)
+        #self.allEvents = np.ndarray((0,),dtype=self.dt)
+        self.allEvents = []
 
         self.goodEvents = np.ndarray((0,),dtype=self.dt)
 
@@ -69,22 +71,29 @@ class calibration:
 
         else:
 
-            self.allEvents = np.append(self.allEvents,eventArray)
+            for event in eventArray:
 
-            for i,event in enumerate(eventArray):
+                self.allEvents.append(event)
 
-                if event['isGood']:
+                check1 = np.floor(event['ratioMain']*100.)<self.numBins-1
+                check2 = event['ratioMain']>=1.
 
-                    self.goodEvents = np.append(self.goodEvents,event)
+                if check1 and check2 and event['isGood']:
 
-            ratios = []
+                    region = event['regionMain']
+                    
+                    ratioBin = np.floor(event['ratioMain']*100.)
 
-            for i in range(self.numStrips*2-4):
+                    self.rhist[region][ratioBin] += 1
 
-                ratios.append([event['ratioMain'] for j,event in enumerate(self.goodEvent) \
-                        if event['regionMain'] == i])
+                    self.numGoodEvents += 1
 
-                self.rhist[i], = np.histogram(ratios[-1],bins=self.numBins,range=(0.,self.numBins/100.))
+                    self.numEvents[region] += 1
+
+                else:
+
+                    event['isGood'] = False
+                    self.numBadEvents += 1
 
     def callParser(self,fname=None,folderName=None):
 
@@ -315,33 +324,66 @@ class calibration:
 
         print "Reconstructing weighting potentials from the calibration data..."
 
-        self.WP = np.zeros((self.numStrips*2-4,int(np.ceil(50.*self.stripPitch/2.+1))))
-        self.WPmask = np.zeros((self.numStrips*2-4,int(np.ceil(50.*self.stripPitch/2.+1))))
-        wpReconstructHist = np.zeros((self.numStrips*2-4,int(np.ceil(50.*self.stripPitch/2.+1)),6500))
+        self.WP = np.zeros((self.numStrips*2-4,
+            int(np.ceil(50.*self.stripPitch/2.+1))))
+        self.WPmask = np.zeros((self.numStrips*2-4,
+            int(np.ceil(50.*self.stripPitch/2.+1))))
+        self.wpReconstructHist = np.zeros((self.numStrips*2-4,
+            int(np.ceil(50.*self.stripPitch/2.+1)),200))
+        wpReconOrg = []
+        for i in range(self.numStrips*2-4):
+            wpReconOrg.append([])
+            for j in range(int(np.ceil(50.*self.stripPitch/2.)+1)):
+                wpReconOrg[i].append([])
+        binEdges = np.arange(0,1001,4)
+        binCenters = (binEdges[:-1] + binEdges[1:])/2.
 
-        for e in self.goodEvents:
+        for e in self.allEvents:
 
-            e['x'] = (self.mapEvent(e = e, xOnly = 1))
+            if e['isGood'] and max(e['pulseHeights'])>0 and \
+                    max(e['pulseHeights'])<1000:
+
+                e['x'] = self.mapEvent(e = e, xOnly = 1)
             
-            if max(e['pulseHeights']) < 32000:
-                wpReconstructHist[e['regionMain']][round(e['x']*50.)]\
-                    [round(max(e['pulseHeights'])/5.)] += 1
+                wpReconOrg[e['regionMain']][int(round(e['x']*50.))].append(
+                    max(e['pulseHeights']))
 
-        for i,region in enumerate(wpReconstructHist):
+                '''if max(e['pulseHeights']) < 1000:
+                    for thisBin,edge in enumerate(binEdges):
+                        if max(e['pulseHeights'])<edge:
+                            break
+
+                    self.wpReconstructHist[e['regionMain']][round(e['x']*50.)]\
+                        [thisBin-1] += 1'''
+
+        for region,regionArray in enumerate(wpReconOrg):
+            for pos,posArray in enumerate(regionArray):
+                self.wpReconstructHist[region][pos],binEdges = np.histogram(posArray,
+                    bins=200,range=(0.,2000.))
+
+        for i,region in enumerate(self.wpReconstructHist):
 
             for j,histAtPosition in enumerate(region):
                 
-                accumulator = 0
-
                 if sum(histAtPosition) > 1000:
 
-                    peakPos = np.argmax(histAtPosition)
+                    peakPos = np.argmax(histAtPosition[25:])+25
+                    #peakPos = sum([height*(peak-15+bin_) for bin_,height 
+                    #    in enumerate(histAtPosition[peak-15:peak+16])])/ \
+                    #            sum(range(peak-15,peak+16))
+                    
+                    #peakPos = np.argmax(histAtPosition[15:])+15
                 
                     self.WP[i][j] = peakPos
 
                 else:
 
-                    peakPos = np.argmax(histAtPosition)
+                    peakPos = np.argmax(histAtPosition[25:])+25
+                    #peakPos = sum([height*(peak-15+bin_) for bin_,height 
+                    #    in enumerate(histAtPosition[peak-15:peak+16])])/ \
+                    #            sum(range(peak-15,peak+16))
+
+                    #reakPos = np.argmax(histAtPosition[15:])+15
 
                     self.WP[i][j] = peakPos
 
@@ -531,12 +573,16 @@ class calibration:
         print "Using good events to reconstruct the energy calibration..."
         energies = []
 
-        for i,event in enumerate(self.goodEvents):
+        for i,event in enumerate(self.allEvents):
 
-            event['E'] = self.mapEvent(event,EOnly=1)
-            energies.append(event['E'])
+            if event['isGood']:
+                event['E'] = self.mapEvent(event,EOnly=1)
+                energies.append(event['E'])
 
-        self.Ehist,self.EbinEdges = np.histogram(energies,bins=1000,range=(0,max(energies)))
+        print "The number of events used for this energy calibration: ", len(energies)
+
+        self.Ehist,self.EbinEdges = np.histogram(energies,bins=1000,
+                range=(0,max(energies)))
 
         histMax = np.argmax(self.Ehist)
         

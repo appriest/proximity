@@ -280,8 +280,8 @@ class pixieParser:
         outputArray = list(outputArray)
 
         dt = np.dtype([('pulseHeights',np.int32,(len(outputArray[0]),)),
-                ('regionMain',np.uint8),
-                ('regionSec',np.uint8),
+                ('regionMain',np.int8),
+                ('regionSec',np.int8),
                 ('ratioMain',np.float64),
                 ('ratioSec',np.float64),
                 ('t',np.uint32),
@@ -301,31 +301,45 @@ class pixieParser:
 
             if np.argmax(pulseHeight) != 0 and np.argmax(pulseHeight) != sum(self.channelNum)-1:
 
-                regionLeftCheck = np.sum(pulseHeight[np.argmax(pulseHeight)-1]*np.ones(len(pulseHeight))
-                        >pulseHeight)
+                regionLeftCheck = np.sum(pulseHeight[np.argmax(pulseHeight)-1]* \
+                        np.ones(len(pulseHeight)) > pulseHeight)
 
-                regionRightCheck = np.sum(pulseHeight[np.argmax(pulseHeight)+1]*np.ones(len(pulseHeight))
-                        >pulseHeight)
+                regionRightCheck = np.sum(pulseHeight[np.argmax(pulseHeight)+1]* \
+                        np.ones(len(pulseHeight)) > pulseHeight)
 
                 if regionLeftCheck == 6 and pulseHeight[np.argmax(pulseHeight)-1] != 0:
             
-                    eventArray['regionMain'][num] = 2 * np.argmax(pulseHeight) - 2
-                    eventArray['regionSec'][num] = 2 * np.argmax(pulseHeight) - 1
-                    eventArray['ratioMain'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
-                                    pulseHeight[np.argmax(pulseHeight)-1]
-                    eventArray['ratioSec'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
-                                    pulseHeight[np.argmax(pulseHeight)+1]
-                    eventArray['isGood'][num] = True
+                    if pulseHeight[np.argmax(pulseHeight)-1] > 0.:
+                        eventArray['regionMain'][num] = 2 * np.argmax(pulseHeight) - 2
+                        eventArray['regionSec'][num] = 2 * np.argmax(pulseHeight) - 1
+                        eventArray['ratioMain'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
+                                        pulseHeight[np.argmax(pulseHeight)-1]
+                        eventArray['ratioSec'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
+                                        pulseHeight[np.argmax(pulseHeight)+1]
+                        eventArray['isGood'][num] = True
+                    else:
+                        eventArray['regionMain'][num] = -1
+                        eventArray['regionSec'][num] = -1
+                        eventArray['ratioMain'][num] = -1
+                        eventArray['ratioSec'][num] = -1
+                        eventArray['isGood'][num] = False
 
                 elif regionRightCheck == 6 and pulseHeight[np.argmax(pulseHeight)+1] != 0:
 
-                    eventArray['regionMain'][num] = 2 * np.argmax(pulseHeight) - 1
-                    eventArray['regionSec'][num] = 2 * np.argmax(pulseHeight) - 2
-                    eventArray['ratioMain'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
-                                    pulseHeight[np.argmax(pulseHeight)+1]
-                    eventArray['ratioSec'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
-                                    pulseHeight[np.argmax(pulseHeight)-1]
-                    eventArray['isGood'][num] = True
+                    if pulseHeight[np.argmax(pulseHeight)+1] > 0.:
+                        eventArray['regionMain'][num] = 2 * np.argmax(pulseHeight) - 1
+                        eventArray['regionSec'][num] = 2 * np.argmax(pulseHeight) - 2
+                        eventArray['ratioMain'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
+                                        pulseHeight[np.argmax(pulseHeight)+1]
+                        eventArray['ratioSec'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
+                                        pulseHeight[np.argmax(pulseHeight)-1]
+                        eventArray['isGood'][num] = True
+                    else:
+                        eventArray['regionMain'][num] = -1
+                        eventArray['regionSec'][num] = -1
+                        eventArray['ratioMain'][num] = -1
+                        eventArray['ratioSec'][num] = -1
+                        eventArray['isGood'][num] = False
 
                 else:
 
