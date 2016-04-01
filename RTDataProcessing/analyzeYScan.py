@@ -11,15 +11,16 @@ def analyzeData(plot3d=True, strips=0, plotPeaks=True, fitPeaks=True):
 
     import os
 
-    fileDir = os.getcwd() + '/data/'
+    fileDir = os.getcwd() + '/ydata/'
 
     allEvents = None
 
     verts = [[],[],[],[],[],[],[],[]]
-    zs = list(np.arange(0,1.85,0.05))
 
     fileList = os.listdir(fileDir)
     fileList.sort()
+
+    zs = list(np.arange(len(fileList))*1.27)
 
     centroids = [[],[],[],[],[],[],[],[]]
     stdDevs = [[],[],[],[],[],[],[],[]]
@@ -94,6 +95,34 @@ def analyzeData(plot3d=True, strips=0, plotPeaks=True, fitPeaks=True):
     plt.show()
 
     return [centroids,stdDevs]
+
+def plotData(centroids,stdDevs,strips=None):
+
+    colors=['blue','red','green','magenta','orange','gold','black','gray']
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    if strips == None:
+        for i,stripCentroids in enumerate(centroids):
+            for j,centroid in enumerate(stripCentroids):
+                centroid = centroid/stripCentroids[0]
+                ax.errorbar(j*1.27,centroid,yerr=stdDevs[i][j]/stripCentroids[0],
+                        marker='x',ecolor=colors[i],color=colors[i])
+
+    else:
+        for strip in strips:
+            for j,centroid in enumerate(centroids[strip]):
+                centroid = centroid/centroids[strip][0]
+                ax.errorbar(j*1.27,centroid,yerr=stdDevs[strip][j]/centroids[strip][0],
+                        marker='x',ecolor=colors[strip],color=colors[strip])
+
+    plt.xlabel('Position Along Strip Length (mm)')
+    plt.ylabel('Normalized Peak Position')
+
+    ax.set_xlim((-0.5,j*1.27+0.5))
+    ax.set_ylim((0.85,1.25))
+
+    plt.show()
 
 def readData(filePath = None):
 

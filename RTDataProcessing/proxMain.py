@@ -7,8 +7,9 @@ def analyzeData():
 
     start = time.time()
     cal = cc.calibration()
-    cal.callParser(fname='Proximity_flood_121515_0002.bin')
+    cal.callParser(folderName='data')
     cal.reconstructWP()
+    cal.energyCalibration()
     end = time.time()
     print "Elapsed time: ", end-start
     return cal

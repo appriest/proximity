@@ -286,7 +286,7 @@ class pixieParser:
                 ('ratioSec',np.float64),
                 ('t',np.uint32),
                 ('x',np.float32),
-                ('E',np.float32),
+                ('E',np.float64),
                 ('isGood',np.bool_)])
 
         eventArray = np.zeros((len(self.eventTimes,)),dtype=dt)

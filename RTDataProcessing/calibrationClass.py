@@ -5,12 +5,13 @@ import matplotlib.pyplot as plt
 import pyqtgraph as pg
 from pyqtgraph.Qt import QtGui, QtCore
 import numpy.ma as ma
+import matplotlib.pyplot as plt
 
 class calibration:
 
     def __init__(self, calType = 0, stripPitch = 5., numBins = 2000, \
                  moduleNum=2, channelNum=[4,4], numWPbins = 500,
-                 maxWP = 0.75):
+                 maxWP = 0.75, minHeight=15.):
 
         '''Usage: calibration(calType=0,stripPitch=5.,numBins=2000,numStrips=8)
 
@@ -42,6 +43,7 @@ class calibration:
         self.numBadEvents = 0
         self.maxWP = maxWP
         self.energyCal = np.ones((self.numStrips*2-4))
+        self.minHeight = minHeight
 
         self.dt = np.dtype([('pulseHeights',np.int32,(self.numStrips,)),
                 ('regionMain',np.int8),
@@ -50,7 +52,7 @@ class calibration:
                 ('ratioSec',np.float64),
                 ('t',np.uint32),
                 ('x',np.float32),
-                ('E',np.float32),
+                ('E',np.float64),
                 ('isGood',np.bool_)])
 
         #self.allEvents = np.ndarray((0,),dtype=self.dt)
@@ -77,8 +79,10 @@ class calibration:
 
                 check1 = np.floor(event['ratioMain']*100.)<self.numBins-1
                 check2 = event['ratioMain']>=1.
+                #check3 = np.argmax(event['pulseHeights'])
+                check4 = np.max(event['pulseHeights'])>self.minHeight
 
-                if check1 and check2 and event['isGood']:
+                if check1 and check2 and check4 and event['isGood']:
 
                     region = event['regionMain']
                     
@@ -92,7 +96,7 @@ class calibration:
 
                 else:
 
-                    event['isGood'] = False
+                    self.allEvents[-1]['isGood'] = False
                     self.numBadEvents += 1
 
     def callParser(self,fname=None,folderName=None):
@@ -140,7 +144,10 @@ class calibration:
 
             eventList = []
 
-            for thisFile in os.listdir(fileDir):
+            fileList = os.listdir(fileDir)
+            fileList.sort()
+
+            for thisFile in fileList:
 
                 if thisFile[-4:] == '.bin':
 
@@ -190,6 +197,42 @@ class calibration:
                                  for j,subArray in enumerate(self.rhist)])
 
         self.mapping = self.mapping*self.stripPitch/2.
+
+    def adjustMap(self,diffs=None,diffXs=None):
+
+        if diffs == None or diffXs == None:
+
+            return 0
+
+        else:
+
+            for region,mapping in enumerate(self.mapping):
+
+                for i,oldMap in enumerate(mapping):
+
+                    oldMapX = region*2.5+oldMap
+
+                    approxBin = int(round(oldMapX/0.127))-5
+
+                    for j,actX in enumerate(diffXs[approxBin:]):
+                        if oldMapX<actX:
+                            j = j+approxBin
+                            break
+
+                    diff = (diffs[j]-diffs[j-1])/(diffXs[j]-diffXs[j-1])* \
+                            (oldMapX-diffXs[j-1])+diffs[j-1]
+
+                    if oldMap+diff<=2.5 and oldMap+diff>0.:
+
+                        self.mapping[region][i] = oldMap + diff
+
+                    elif oldMap+diff<0.:
+
+                        self.mapping[region][i] = oldMap
+
+                    else:
+
+                        self.mapping[region][i] = 2.5
 
     def plotMap(self, regions = None):
 
@@ -394,6 +437,9 @@ class calibration:
 
         self.WPm = ma.MaskedArray(self.WP,mask=self.WPmask)
 
+        self.WPx = [num*self.stripPitch/2./len(self.WP[0]) 
+            for num in range(len(self.WP[0]))]
+
         print "Done!"
 
     def plotWPs(self, masked=0):
@@ -537,20 +583,26 @@ class calibration:
                 both = 0
 
             if xOnly == 1:
-                index = round(e['ratioMain']*100-100)
-                x = self.mapping[e['regionMain'],index]
+                index = int(np.floor(e['ratioMain']*100-100))
+                if index >= self.numBins-101:
+                    e['x'] = 2.5
+                else:
+                    e['x'] = (self.mapping[e['regionMain']][index+1]- \
+                            self.mapping[e['regionMain']][index])* \
+                            (e['ratioMain']*100-100-index) + \
+                            self.mapping[e['regionMain']][index]
 
                 if both == 0:
-                    return x
+                    return e['x']
 
             if EOnly == 1:
-                energy = e['pulseHeights'][np.argmax(e['pulseHeights'])]/self.mapXtoWP(e=e) * \
-                    self.energyCal[np.argmax(e['pulseHeights'])]
+                energy = np.max(e['pulseHeights'])/self.mapXtoWP(e=e) * \
+                    self.energyCal
 
                 if both == 0:
                     return energy
 
-            return [x,energy]
+            return [e['x'],energy]
 
     def mapXtoWP(self,e=None):
 
@@ -561,8 +613,13 @@ class calibration:
             the region where the interaction occurred.
         '''
         if e is not None:
-            return self.WP[e['regionMain'],round(e['x']/ \
-                    self.stripPitch*float(np.shape(self.WP)[1]))]
+            #return self.WP[e['regionMain'],round(e['x']/ \
+            #        self.stripPitch*float(np.shape(self.WP)[1]))]
+            for WPbin,WPpos in enumerate(self.WPx):
+                if e['x'] < WPpos:
+                    break
+            return self.WP[e['regionMain']][WPbin]
+        
         else:
             print "You need to provide a position to map a weighting potential\
                 to!"
@@ -581,8 +638,13 @@ class calibration:
 
         print "The number of events used for this energy calibration: ", len(energies)
 
-        self.Ehist,self.EbinEdges = np.histogram(energies,bins=1000,
+        Ehist,EbinEdges = np.histogram(energies,bins=1000,
                 range=(0,max(energies)))
+
+        histMax = np.argmax(Ehist)
+
+        self.Ehist,self.EbinEdges = np.histogram(energies,bins=1000,
+                range=(0,EbinEdges[histMax+100]))
 
         histMax = np.argmax(self.Ehist)
         
@@ -607,6 +669,119 @@ class calibration:
         import sys
         if(sys.flags.interactive != 1) or not hasattr(QtCore,
                                                           'PYQT_VERSION'):
+            QtGui.QApplication.instance().exec_()
+
+    def gatherPositions(self,regions=None,fnames=None):
+
+        positions = []
+
+        if regions is not None:
+
+            for i,region in enumerate(regions):
+
+                positions.append([])
+
+                for event in self.allEvents:
+
+                    if event['isGood'] and event['regionMain'] == region:
+
+                        if event['regionMain']%2 == 0:
+                            positions[i].append(event['x'] + 
+                                    (np.argmax(event['pulseHeights'])-1.)*self.stripPitch)
+                        else:
+                            positions[i].append(np.argmax(event['pulseHeights'])*self.stripPitch
+                                    - event['x'])
+
+        elif fnames is not None:
+
+            import pixieBinParser as pp
+            for i,fileName in enumerate(fnames):
+
+                positions.append([])
+
+                filePath = 'data/' + fileName
+                prsr = pp.pixieParser(fname=filePath,moduleNum=self.moduleNum,
+                                      channelNum=self.channelNum)
+
+                prsr.readBinFile()
+
+                eventList = prsr.makeAndWriteEvents()
+                
+                for event in eventList:
+
+                    check1 = np.floor(event['ratioMain']*100.) < self.numBins-1
+                    check2 = event['ratioMain'] >= 1.
+
+                    if check1 and check2 and event['isGood']:
+
+                        event['x'] = self.mapEvent(e=event,xOnly=True)
+
+                        if event['regionMain']%2 == 0:
+                            positions[i].append(event['x'] + 
+                                    (np.argmax(event['pulseHeights'])-1.)*self.stripPitch)
+                        else:
+                            positions[i].append(np.argmax(event['pulseHeights'])*self.stripPitch
+                                    - event['x'])
+
+        else:
+            
+            for event in self.allEvents:
+
+                if event['isGood']:
+
+                    if event['regionMain']%2 == 0:
+                        positions.append(event['x'] + 
+                                (np.argmax(event['pulseHeights'])-1.)*self.stripPitch)
+                    else:
+                        positions.append(np.argmax(event['pulseHeights'])*self.stripPitch
+                                - event['x'])
+
+        return positions
+
+    def plotPositionHists(self,regions=None,fnames=None):
+
+        posHistPlot = pg.plot(title = "Event Position Distribution")
+        posHistPlot.setLabel('left',"Counts")
+        posHistPlot.setLabel('bottom',"Position (mm)")
+
+        if regions is not None:
+
+            positions = self.gatherPositions(regions=regions)
+
+            for i,region in enumerate(regions):
+
+                histName = "Region " + str(region)
+
+                hist,binEdges = np.histogram(positions[i],bins=1000,range=(0.,30.0))
+
+                posCurve = pg.PlotCurveItem(binEdges,hist,stepMode=True,name=histName)
+
+                posHistPlot.addItem(posCurve)
+
+        elif fnames is not None:
+
+            positions = self.gatherPositions(fnames=fnames)
+
+            for i,fileName in enumerate(fnames):
+
+                hist,binEdges = np.histogram(positions[i],bins=1000,range=(0.,30.0))
+
+                posCurve = pg.PlotCurveItem(binEdges,hist,stepMode=True,name=fileName)
+
+                posHistPlot.addItem(posCurve)
+
+        else:
+
+            positions = self.gatherPositions()
+
+            hist,binEdges = np.histogram(positions,bins=1000,range=(0.,30.0))
+
+            posCurve = pg.PlotCurveItem(binEdges,hist,stepMode=True,name="All Events")
+
+            posHistPlot.addItem(posCurve)
+
+        import sys
+        if(sys.flags.interactive != 1) or not hasattr(QtCore,'PYQT_VERSION'):
             QtGui.QApplication.instance().exec_()
 
     def calProperties(self):
