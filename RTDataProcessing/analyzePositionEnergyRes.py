@@ -11,16 +11,23 @@ import matplotlib.pyplot as plt
 
 def analyzeData(cal=None,plotAll=True,remapX=False):
 
+    mNum = 2
+    chNum = [4,4]
+
     if cal == None:
-        cal = cc.calibration()
-        cal.callParser(folderName='xdata')
+        minHeight = 0
+        moduleNum = mNum
+        channelNum = chNum
+        cal = cc.calibration(minHeight=minHeight,moduleNum=moduleNum,
+                channelNum=channelNum)
+        cal.callParser(folderName='data')
         cal.reconstructWP()
         cal.energyCalibration()
 
     print "\n\nDone reading file... \n\n"
 
     curDir = os.getcwd()
-    fileDir = curDir + '/xdata/'
+    fileDir = curDir + '/data/'
 
     fileList = os.listdir(fileDir)
     fileList.sort()
@@ -36,14 +43,19 @@ def analyzeData(cal=None,plotAll=True,remapX=False):
     xFits = []
     EFits = []
 
-    for i,thisFile in enumerate(fileList[21:-22]):
+    for i,thisFile in enumerate(fileList[22:-23]):
 
         filePath = fileDir + thisFile
         print "Reconstructing events from: ", filePath
-        prsr = pp.pixieParser(fname=filePath,moduleNum=2,
-                channelNum=[4,4])
-        prsr.readBinFile()
+        prsr = pp.pixieParser(fname=filePath,moduleNum=mNum,
+                channelNum=chNum)
+        if thisFile[-3:] == 'bin':
+            prsr.readBinFile()
+        else:
+            prsr.readTextFile()
         eventList = prsr.makeAndWriteEvents()
+        if prsr.goodEvents <= 50:
+            continue
 
         positions = []
         energies = []
@@ -77,15 +89,19 @@ def analyzeData(cal=None,plotAll=True,remapX=False):
             
         
         
-        posHist, bins = np.histogram(positions,bins=1000,range=(0.,30.))
+        posHist, bins = np.histogram(positions,bins=600,range=(0.,30.))
 
         xbinCenters = np.array((bins[:-1] + bins[1:]))/2.
 
         xbins.append(list(xbinCenters))
         posHists.append(list(posHist))
 
-        fit, cov = fitGauss(list(xbinCenters),list(posHist),isX=True)
-        xFits.append([fit,cov])
+        if max(posHist)>10:
+            try:
+                fit, cov = fitGauss(list(xbinCenters),list(posHist),isX=True)
+                xFits.append([fit,cov])
+            except:
+                print "Could not fit position histogram."
 
         EHist, EBin = np.histogram(energies,bins=500,range=(0.,100.))
 
@@ -94,8 +110,12 @@ def analyzeData(cal=None,plotAll=True,remapX=False):
         Ebins.append(list(EbinCenters))
         EHists.append(list(EHist))
     
-        fit, cov = fitGauss(list(EbinCenters),list(EHist))
-        EFits.append([fit,cov])
+        if max(EHist)>10:
+            try:
+                fit, cov = fitGauss(list(EbinCenters),list(EHist))
+                EFits.append([fit,cov])
+            except:
+                print "Could not fit energy histogram."
 
     if remapX:
 
@@ -191,16 +211,7 @@ def fitGauss(xdata, ydata, isX=False):
 def gauss(x,A,mu,sig):
     return A*np.exp(-((x-mu)**2)/(2.*sig**2))
 
-def plotDiff(xFits,boxOffset=0.,returnDiff=False):
-
-    xAct = np.arange(len(xFits))*0.127
-    xs = np.array([fit[0][1] for fit in xFits])
-    stdDevs = np.array([fit[1] for fit in xFits])
-    stdDevs = np.array([cov[2] for cov in stdDevs])
-    stdDevs = np.array([cov[2] for cov in stdDevs])
-
-    diff = np.array([x-f for x,f in zip(xs,xAct[::-1])])
-    diff = diff - np.ones(len(diff))*np.average(diff)
+def plotDiff(boxOffset=0.):
 
     ax = plotBox(vert=max(diff)+max(diff)/10.,offset=boxOffset)
 
@@ -210,9 +221,19 @@ def plotDiff(xFits,boxOffset=0.,returnDiff=False):
     plt.xlabel('Position (mm)')
     plt.ylabel('Deviation from linear (mm)')
 
-    if returnDiff:
+def calcDiff(xFits,err=False):
 
-        return [diff,xAct]
+    xAct = np.arange(len(xFits))*0.127
+    xs = np.array([fit[0][1] for fit in xFits])
+    if err:
+        stdDevs = np.array([fit[1] for fit in xFits if len(fit)>1])
+        stdDevs = np.array([cov[2] for cov in stdDevs if len(cov)>2])
+        stdDevs = np.array([cov[2] for cov in stdDevs if len(cov)>2])
+
+    diff = np.array([x-f for x,f in zip(xs,xAct[::-1])])
+    diff = diff - np.ones(len(diff))*np.average(diff)
+
+    return [diff,xAct]
 
 def plotAllEs(EHists,Ebins):
 
@@ -220,7 +241,7 @@ def plotAllEs(EHists,Ebins):
 
     ax = fig.add_subplot(111)
 
-    EHistAll = np.sum(EHists,axis=0)
+    EHistAll = list(np.sum(EHists,axis=0))
 
     fit,var = fitGauss(Ebins[0],EHistAll)
 
@@ -247,16 +268,33 @@ def plotAllXs(posHists,xbins):
 
     ax.plot(xbins[0],xhistAll,'k')
 
-def plotHists(posHists,xbins,numList=None):
+def plotHists(posHists,xbins,xFits,numList=None):
 
-    ax = plotBox(vert=100,regionLines=True)
+    from plotSourcePos import plotSourcePos
+    diff,xAct = calcDiff(xFits)
+
+    maxHist=0
+
+    start = numList[0]
+    end = numList[-1]
+    for hist in posHists[start:end]:
+        if max(hist)>maxHist:
+            maxHist = max(hist)
+    ax = plotBox(vert=maxHist+20,regionLines=True)
+    #ax = plotSourcePos(ax,numList,diff=diff)
 
     for num in numList:
 
-        ax.plot(xbins[num],posHists[num])
+        ax.step(xbins[num],posHists[num])
 
-    plt.xlabel('Position (mm)')
-    plt.ylabel('Counts')
+    for tick in ax.xaxis.get_major_ticks():
+        tick.label.set_fontsize(16)
+    for tick in ax.yaxis.get_major_ticks():
+        tick.label.set_fontsize(16)
+
+
+    plt.xlabel('Position (mm)',fontsize=16)
+    plt.ylabel('Counts',fontsize=16)
 
 def fileLoop(ECurves,posCurves,fileList):
 

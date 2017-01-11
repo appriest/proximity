@@ -2,7 +2,7 @@ import numpy as np
 import os
 import numpy.random as rand
 
-def writeEvents(wpfile = None,n=0.0,source=None,numEvents=10000):
+def writeEvents(wpfile = None,n=0.0,source=None,numEvents=1000):
 
     WPs = []
     
@@ -18,14 +18,15 @@ def writeEvents(wpfile = None,n=0.0,source=None,numEvents=10000):
         WPs.append(WP)
 
     maxWP = max(WP)
-    noise = n/59.5*maxWP/2.355
+    noise = n/59.5/2.355
 
     if source is None:
 
-        source = np.linspace(1.e-3,79.e-3,400)
+        source = np.linspace(1.e-3,79.e-3,200)
 
     for sourcePos in source:
 
+        sourcePos = round(sourcePos,6)
         posc = list(np.copy(pos))
         posc.append(sourcePos)
         poscSorted = np.argsort(posc)
@@ -108,7 +109,7 @@ def writeFile(posWP,noise,numEvents,fname,sourcePos,maxWP):
 
     f.write('Noise level: ')
     f.write(str(noise*2.355*59.5/maxWP))
-    f.write(' a.u.')
+    f.write(' keV\n')
 
     for i in range(numEvents):
 
@@ -118,11 +119,22 @@ def writeFile(posWP,noise,numEvents,fname,sourcePos,maxWP):
 
             if noise>0:
                 rand.seed()
-                event.append(posWP[j] + rand.normal(scale=noise))
+                event.append(int(1000*(posWP[j] + rand.normal(scale=noise))))
             else:
                 event.append(posWP[j])
 
-            f.write(str(event[-1]) + '\t')
+            if event[-1]>=0:
+                strEvent = str(round(event[-1],6))
+            else:
+                strEvent = str(round(event[-1],5))
+            if len(strEvent)<8:
+                for i in range(8-len(strEvent)):
+                    strEvent = strEvent + '0'
+            if j == len(posWP)-1:
+                f.write(strEvent)
+                break
+            else:
+                f.write(strEvent + '\t')
 
         f.write('\n')
 

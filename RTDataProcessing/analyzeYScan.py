@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import pixieBinParser as pbp
 
 from scipy.optimize import curve_fit
@@ -7,18 +8,20 @@ from scipy.optimize import curve_fit
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.collections import PolyCollection
 
+mpl.rcParams['font.family']='cmr10'
+
 def analyzeData(plot3d=True, strips=0, plotPeaks=True, fitPeaks=True):
 
     import os
 
     fileDir = os.getcwd() + '/ydata/'
 
+    fileList = os.listdir(fileDir)
+    fileList.sort()
+
     allEvents = None
 
     verts = [[],[],[],[],[],[],[],[]]
-
-    fileList = os.listdir(fileDir)
-    fileList.sort()
 
     zs = list(np.arange(len(fileList))*1.27)
 
@@ -89,7 +92,7 @@ def analyzeData(plot3d=True, strips=0, plotPeaks=True, fitPeaks=True):
         ax3d.set_ylabel('Counts')
 
         ax3d.set_xlim3d(0,1000)
-        ax3d.set_ylim3d(0,1.85)
+        ax3d.set_ylim3d(0,50)
         ax3d.set_zlim3d(0,300)
 
     plt.show()
@@ -162,4 +165,4 @@ def fitGauss(xdata, ydata):
 
 if __name__ == "__main__":
 
-    analyzeData()
+    analyzeData(strips=range(8))

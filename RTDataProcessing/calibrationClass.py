@@ -126,7 +126,10 @@ class calibration:
             prsr = pp.pixieParser(fname=fname,moduleNum=self.moduleNum,
                                   channelNum=self.channelNum)
 
-            prsr.readBinFile()
+            if fname[-3:] == 'bin':
+                prsr.readBinFile()
+            else:
+                prsr.readTextFile()
 
             eventList = prsr.makeAndWriteEvents()
 
@@ -149,14 +152,17 @@ class calibration:
 
             for thisFile in fileList:
 
-                if thisFile[-4:] == '.bin':
+                if thisFile[-4:] == '.bin' or thisFile[-4:] == '.txt':
 
                     print "Reading ", thisFile, "..."
                     prsrPath = folderName + '/' + thisFile
                     prsr = pp.pixieParser(fname=prsrPath,
                                          moduleNum=self.moduleNum,
                                          channelNum=self.channelNum)
-                    prsr.readBinFile()
+                    if thisFile[-3:] == 'bin':
+                        prsr.readBinFile()
+                    else:
+                        prsr.readTextFile()
                     eventList = prsr.makeAndWriteEvents()
 
                     self.addEvents(eventList)
@@ -166,8 +172,7 @@ class calibration:
 
                 else:
 
-                    print "Skipping ", thisFile, ", because it is not a \
-                        .bin file..."
+                    print "Skipping ", thisFile, ", because it is not a .bin or .txt file..."
 
             print "Done!\n"
 
@@ -505,9 +510,12 @@ class calibration:
             print "Writing calibration to file: ", fname, "\n"
 
             # Write calibration
-            import pickle as pk
 
-            pk.dumps(self)
+            f = open(fname,wb)
+
+            f.write(self.numStrips)
+            f.write(self.stripPitch)
+            
 
             print "...\nFinished!"
 

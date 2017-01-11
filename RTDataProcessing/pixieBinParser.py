@@ -24,9 +24,18 @@ class pixieParser:
             the same dimension as moduleNum (i.e. 1xmoduleNum)
     '''
 
-    def __init__(self, fname=None, quiet=1, moduleNum=None, channelNum=None):
+    def __init__(self, fname=None, quiet=1, moduleNum=None, channelNum=None, 
+            minHeight = 0., channelConfig = None):
 
         self.fname = fname
+        self.goodEvents = 0
+        self.minHeight = minHeight
+        self.channelConfig = channelConfig
+
+        if self.fname[-3:] == 'txt':
+            self.txt=True
+        else:
+            self.txt=False
 
         if self.fname is None:
 
@@ -37,7 +46,10 @@ class pixieParser:
 
         try:
 
-            self.f = open(fname, 'rb')
+            if self.txt:
+                self.f = open(fname)
+            else:
+                self.f = open(fname, 'rb')
 
         except IOError:
 
@@ -78,6 +90,31 @@ class pixieParser:
 
         self.f.seek(0, os.SEEK_SET)
 
+    def readTextFile(self,quiet=1):
+
+        self.f.seek(0, os.SEEK_END)
+        numbytes = self.f.tell()
+
+        self.f.seek(0)
+        
+        self.f.readline()
+        self.f.readline()
+
+        events = []
+
+        while self.f.tell() < numbytes:
+
+            event = []
+            for i in range(8):
+
+                event.append(float(self.f.read(8)))
+                self.f.read(1)
+
+            events.append(event)
+
+        self.txtArray = events
+        self.eventTimes = list(np.zeros(len(events)))
+
     def readBinFile(self,quiet=1):
 
         '''
@@ -99,7 +136,7 @@ class pixieParser:
 
             self.energies.append([])
 
-            for j in range(int(self.channelNum[i])):
+            for j in range(int(4)):   # replace 4 with self.channelNum[i if 4 doesn't work]
 
                 self.energies[i].append([])
 
@@ -115,6 +152,7 @@ class pixieParser:
             bufTimeMi, = struct.unpack('h', self.f.read(2))
             bufTimeLo, = struct.unpack('h', self.f.read(2))
 
+
             bufferTime = bufTimeHi*2**32 + bufTimeMi*2**16 + bufTimeLo
             numEvents = (buffersize - 6)/11
             numBuffers = numBuffers + 1
@@ -129,11 +167,14 @@ class pixieParser:
                 eventTimeHi, = struct.unpack('h', self.f.read(2))
                 eventTimeLo, = struct.unpack('h', self.f.read(2))
 
-                for channel in range(int(self.channelNum[module])):
+                # Put this back in if 4 channel read does not work
+                # for channel in range(int(self.channelNum[module])):   
+                for channel in range(4):
 
                     timeCh, = struct.unpack('h', self.f.read(2))
                     energyCh, = struct.unpack('h', self.f.read(2))
 
+                    #if channel<self.channelNum[module]: # Take this out if 4 channel read does not work
                     self.energies[module][channel].append(energyCh)
 
                 # Module number check prevents redundancy
@@ -158,7 +199,7 @@ class pixieParser:
                     print "There are ", len(chan), " events in Ch. ", chani
 
                     chani += 1
-
+        '''
         print "len(eventTimes): ", len(self.eventTimes)
         print "len(energies[0][0]: ", len(self.energies[0][0])
         print "len(energies[1][0]: ", len(self.energies[1][0])
@@ -170,6 +211,7 @@ class pixieParser:
             self.energies[1][1][0], ',',\
             self.energies[1][2][0], ',',\
             self.energies[1][3][0]
+        '''
 
     def writeTxtFile(self):
 
@@ -260,24 +302,49 @@ class pixieParser:
             return them or write them to a file. At the time of writing this
             none of the functionality has been written.
         '''
-        totalCh = 0
+        if self.txt != True:
+            totalCh = 0
 
-        for chNum in self.channelNum:
+            for chNum in self.channelNum:
 
-            totalCh += chNum
+                totalCh += chNum
 
-        dim0 = max([len(self.energies[0][0]),len(self.energies[1][0])])
-        outputArray = np.zeros((dim0,totalCh))
+            dim0 = max([len(self.energies[0][0]),len(self.energies[1][0])])
+            outputArray = np.zeros((dim0,totalCh))
 
-        for m,module in enumerate(self.energies):
+            for m,module in enumerate(self.energies):
 
-            for ch,channel in enumerate(module):
+                if self.channelConfig is not None:
+                    if m == 0:
+                        index = 0
+                    else:
+                        index = m*len(self.channelConfig[m-1])
 
-                for i,eventEnergy in enumerate(channel):
+                for ch,channel in enumerate(module):
 
-                    outputArray[i,ch+4*m] = eventEnergy
+                    if self.channelConfig is None:
 
-        outputArray = list(outputArray)
+                        for i,eventEnergy in enumerate(channel):
+
+                            outputArray[i,ch+4*m] = eventEnergy
+
+                    elif ch in self.channelConfig[m]:
+
+                        for i,eventEnergy in enumerate(channel):
+
+                            outputArray[i,index] = eventEnergy
+
+                        index += 1
+
+                    else:
+
+                        continue
+
+            outputArray = list(outputArray)
+
+        else:
+
+            outputArray = self.txtArray
 
         dt = np.dtype([('pulseHeights',np.int32,(len(outputArray[0]),)),
                 ('regionMain',np.int8),
@@ -299,7 +366,8 @@ class pixieParser:
             # Note: These checks will not work on multi-site events. Change to check all
             #   channels for second highest pulse height
 
-            if np.argmax(pulseHeight) != 0 and np.argmax(pulseHeight) != sum(self.channelNum)-1:
+            if np.argmax(pulseHeight) != 0 and np.argmax(pulseHeight) != sum(self.channelNum)-1 \
+                and max(pulseHeight)>self.minHeight:
 
                 regionLeftCheck = np.sum(pulseHeight[np.argmax(pulseHeight)-1]* \
                         np.ones(len(pulseHeight)) > pulseHeight)
@@ -307,9 +375,11 @@ class pixieParser:
                 regionRightCheck = np.sum(pulseHeight[np.argmax(pulseHeight)+1]* \
                         np.ones(len(pulseHeight)) > pulseHeight)
 
-                if regionLeftCheck == 6 and pulseHeight[np.argmax(pulseHeight)-1] != 0:
+                numCheck = sum(self.channelNum)-2
+
+                if regionLeftCheck == numCheck and pulseHeight[np.argmax(pulseHeight)-1] != 0:
             
-                    if pulseHeight[np.argmax(pulseHeight)-1] > 0.:
+                    if pulseHeight[np.argmax(pulseHeight)-1] > self.minHeight:
                         eventArray['regionMain'][num] = 2 * np.argmax(pulseHeight) - 2
                         eventArray['regionSec'][num] = 2 * np.argmax(pulseHeight) - 1
                         eventArray['ratioMain'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
@@ -317,6 +387,7 @@ class pixieParser:
                         eventArray['ratioSec'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
                                         pulseHeight[np.argmax(pulseHeight)+1]
                         eventArray['isGood'][num] = True
+                        self.goodEvents += 1
                     else:
                         eventArray['regionMain'][num] = -1
                         eventArray['regionSec'][num] = -1
@@ -324,9 +395,9 @@ class pixieParser:
                         eventArray['ratioSec'][num] = -1
                         eventArray['isGood'][num] = False
 
-                elif regionRightCheck == 6 and pulseHeight[np.argmax(pulseHeight)+1] != 0:
+                elif regionRightCheck == numCheck and pulseHeight[np.argmax(pulseHeight)+1] != 0:
 
-                    if pulseHeight[np.argmax(pulseHeight)+1] > 0.:
+                    if pulseHeight[np.argmax(pulseHeight)+1] > self.minHeight:
                         eventArray['regionMain'][num] = 2 * np.argmax(pulseHeight) - 1
                         eventArray['regionSec'][num] = 2 * np.argmax(pulseHeight) - 2
                         eventArray['ratioMain'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
@@ -334,6 +405,7 @@ class pixieParser:
                         eventArray['ratioSec'][num] = pulseHeight[np.argmax(pulseHeight)]/ \
                                         pulseHeight[np.argmax(pulseHeight)-1]
                         eventArray['isGood'][num] = True
+                        self.goodEvents += 1
                     else:
                         eventArray['regionMain'][num] = -1
                         eventArray['regionSec'][num] = -1
